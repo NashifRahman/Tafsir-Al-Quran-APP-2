@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { fetchSurahList, type SurahListItem } from "@/services/QuranAPI"
+import { getCachedSurahList, cacheSurahList } from "@/utils/idb" // 👈 Import fungsi IndexedDB
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Search, BookOpen, Sparkles } from "lucide-react"
@@ -16,20 +17,52 @@ export default function SurahList() {
 
   useEffect(() => {
     const loadSurahList = async () => {
+      let data: SurahListItem[] | null = null
+
+      // 1. Coba ambil dari Cache (IndexedDB)
       try {
-        const data = await fetchSurahList()
-        setSurahList(data)
-        setFilteredList(data)
+        const cachedData = await getCachedSurahList()
+        if (cachedData) {
+          data = cachedData
+          setSurahList(data)
+          setFilteredList(data)
+          setLoading(false) // Tampilkan data cache tanpa menunggu API
+          console.log("Data loaded from cache.")
+        }
       } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
+        console.error("Error loading from IndexedDB:", err)
+        // Lanjutkan ke pengambilan API jika DB gagal
       }
+
+      // 2. Ambil dari API jika cache kosong atau error
+      if (!data) {
+        try {
+          const apiData = await fetchSurahList()
+          data = apiData
+          setSurahList(data)
+          setFilteredList(data)
+          
+          // 3. Simpan ke Cache (IndexedDB)
+          await cacheSurahList(data)
+          console.log("Data loaded from API and cached.")
+          
+        } catch (err) {
+          console.error("Error fetching surah list from API:", err)
+        } finally {
+          // Hanya set loading false di sini jika belum di-set oleh cache
+          if (loading) setLoading(false)
+        }
+      }
+      
+      // Jika data berhasil dimuat (dari cache atau API) dan loading masih true, set false
+      if (loading) setLoading(false)
+
     }
     loadSurahList()
-  }, [])
+  }, []) // Dependensi kosong, hanya dijalankan sekali saat mount
 
   useEffect(() => {
+    // ... (Logika filter tetap sama)
     if (searchTerm === "") {
       setFilteredList(surahList)
     } else {
@@ -56,6 +89,7 @@ export default function SurahList() {
     )
   }
 
+  // ... (Sisa JSX tetap sama)
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">

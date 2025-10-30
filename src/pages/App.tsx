@@ -35,7 +35,7 @@ export default function App() {
   const [recognitionAvailable, setRecognitionAvailable] = useState(false)
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [showSearchResults, setShowSearchResults] = useState(false)
-  const [allSurahData, setAllSurahData] = useState<Map<number, SurahData>>(new Map())
+  // const [allSurahData, setAllSurahData] = useState<Map<number, SurahData>>(new Map())
   const [hybridSearchEngine, setHybridSearchEngine] = useState<HybridSearchEngine | null>(null)
 
   useEffect(() => {
@@ -312,7 +312,7 @@ export default function App() {
 
   if (loading)
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-background via-background to-primary/5 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mx-auto mb-6"></div>
           <p className="text-muted-foreground text-lg">Memuat data...</p>
@@ -322,7 +322,7 @@ export default function App() {
 
   if (error)
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-linear-to-br from-background via-background to-primary/5 flex items-center justify-center px-4">
         <div className="text-center max-w-md">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10 mb-6">
             <Home className="h-8 w-8 text-destructive" />
@@ -339,7 +339,7 @@ export default function App() {
   if (!tafsirData) return <div>Tidak ada data.</div>
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-linear-to-br from-background via-background to-primary/5 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8 flex items-center gap-2">
           <Button
