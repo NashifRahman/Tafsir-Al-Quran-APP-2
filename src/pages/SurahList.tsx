@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { fetchSurahList, type SurahListItem } from "@/services/QuranAPI"
-import { getCachedSurahList, cacheSurahList } from "@/utils/idb" // 👈 Import fungsi IndexedDB
+import { fetchSurahList, fetchAllSurahData, type SurahListItem, type SurahData } from "@/services/QuranAPI"
+import { getCachedSurahList, cacheSurahList, cacheSurahDetail } from "@/utils/idb" // 👈 Import fungsi IndexedDB
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Search, BookOpen, Sparkles } from "lucide-react"
@@ -17,7 +17,8 @@ export default function SurahList() {
 
   useEffect(() => {
     const loadSurahList = async () => {
-      let data: SurahListItem[] | null = null
+      let data: SurahListItem[] | null = null;
+      let detail: SurahData[] | null = null;
 
       // 1. Coba ambil dari Cache (IndexedDB)
       try {
@@ -35,15 +36,20 @@ export default function SurahList() {
       }
 
       // 2. Ambil dari API jika cache kosong atau error
-      if (!data) {
+      if (!data && !detail) {
         try {
           const apiData = await fetchSurahList()
+          const apiDetail = await fetchAllSurahData()
           data = apiData
+          detail = apiDetail
+          
+          // Optional: Gabungkan detail ayat ke dalam data surah jika diperlukan
           setSurahList(data)
           setFilteredList(data)
           
           // 3. Simpan ke Cache (IndexedDB)
           await cacheSurahList(data)
+          await cacheSurahDetail(detail)
           console.log("Data loaded from API and cached.")
           
         } catch (err) {

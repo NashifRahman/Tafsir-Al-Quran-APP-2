@@ -249,12 +249,12 @@ export default function UnifiedSearchBar({
         }}
         className="flex gap-2"
       >
-        <Input
+        <Input 
           type="text"
           placeholder="Cari ayat dengan teks, suara, atau nomor (misal: 7, 2:255, atau 2 255)..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          className="flex-1"
+          className="flex-1 border-black"
           dir="auto"
         />
         <Button
