@@ -3,86 +3,128 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { fetchSurahList, fetchAllSurahData, type SurahListItem, type SurahData } from "@/services/QuranAPI"
-import { getCachedSurahList, cacheSurahList, cacheSurahDetail } from "@/utils/idb" // 👈 Import fungsi IndexedDB
+import Hero from "@/components/hero"
+import { getCachedSurahList, cacheSurahList, cacheSurahDetail, getAllCachedSurahDetails } from "@/utils/idb"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Search, BookOpen, Sparkles } from "lucide-react"
+import UnifiedSearchBar from "@/components/UnifiedSearchBar"
+import SearchResultsModal from "@/components/SearchResultsModal"
+import { HybridSearchEngine } from "@/services/hybrid-search"
+
+interface SearchResult {
+  ayat: any
+  surahNumber: number
+  surahName: string
+  matchCount: number
+  matchType: "arab" | "latin" | "terjemahan" | "tafsir"
+  searchLanguage: "arab" | "indonesia"
+}
 
 export default function SurahList() {
   const [surahList, setSurahList] = useState<SurahListItem[]>([])
-  const [filteredList, setFilteredList] = useState<SurahListItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [searchText, setSearchText] = useState("")
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [recognitionAvailable, setRecognitionAvailable] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
-    const loadSurahList = async () => {
-      let data: SurahListItem[] | null = null;
-      let detail: SurahData[] | null = null;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
+    setRecognitionAvailable(!!SpeechRecognition)
+  }, [])
 
-      // 1. Coba ambil dari Cache (IndexedDB)
+  useEffect(() => {
+    const loadSurahList = async () => {
+      let data: SurahListItem[] | null = null
+      let detail: SurahData[] | null = null
+
       try {
         const cachedData = await getCachedSurahList()
         if (cachedData) {
           data = cachedData
           setSurahList(data)
-          setFilteredList(data)
-          setLoading(false) // Tampilkan data cache tanpa menunggu API
-          console.log("Data loaded from cache.")
+          setLoading(false)
+          console.log("✅ Surah list loaded from cache.")
         }
       } catch (err) {
-        console.error("Error loading from IndexedDB:", err)
-        // Lanjutkan ke pengambilan API jika DB gagal
+        console.error("⚠️ Error loading from IndexedDB:", err)
       }
 
-      // 2. Ambil dari API jika cache kosong atau error
       if (!data && !detail) {
         try {
           const apiData = await fetchSurahList()
           const apiDetail = await fetchAllSurahData()
           data = apiData
           detail = apiDetail
-          
-          // Optional: Gabungkan detail ayat ke dalam data surah jika diperlukan
           setSurahList(data)
-          setFilteredList(data)
-          
-          // 3. Simpan ke Cache (IndexedDB)
           await cacheSurahList(data)
           await cacheSurahDetail(detail)
-          console.log("Data loaded from API and cached.")
-          
+          console.log("✅ Surah list fetched from API and cached.")
         } catch (err) {
-          console.error("Error fetching surah list from API:", err)
+          console.error("❌ Error fetching surah list:", err)
         } finally {
-          // Hanya set loading false di sini jika belum di-set oleh cache
           if (loading) setLoading(false)
         }
       }
-      
-      // Jika data berhasil dimuat (dari cache atau API) dan loading masih true, set false
-      if (loading) setLoading(false)
-
     }
     loadSurahList()
-  }, []) // Dependensi kosong, hanya dijalankan sekali saat mount
+  }, [])
 
-  useEffect(() => {
-    // ... (Logika filter tetap sama)
-    if (searchTerm === "") {
-      setFilteredList(surahList)
-    } else {
-      const filtered = surahList.filter((surah) => {
-        const term = searchTerm.toLowerCase()
-        return (
-          surah.name.transliteration.id.toLowerCase().includes(term) ||
-          surah.name.translation.id.toLowerCase().includes(term) ||
-          surah.number.toString().includes(term)
-        )
-      })
-      setFilteredList(filtered)
+  const performGlobalSearch = async (term: string) => {
+    if (!term.trim()) {
+      alert("Masukkan kata kunci pencarian")
+      return
     }
-  }, [searchTerm, surahList])
+
+    const allSurah = await getAllCachedSurahDetails()
+    if (!allSurah || allSurah.length === 0) {
+      alert("Cache kosong. Silakan buka beberapa surah terlebih dahulu agar data tersimpan.")
+      return
+    }
+
+    const hasArabic = /[\u0600-\u06FF]/.test(term)
+    const cleanTerm = hasArabic
+      ? term.trim().normalize("NFKC")
+      : term.toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, "").normalize("NFKC")
+
+    const results: SearchResult[] = []
+
+    for (const surah of allSurah) {
+      const hybrid = new HybridSearchEngine(surah.verses)
+      const found = hybrid.search(cleanTerm, 50)
+      found.forEach((res) => {
+        if (res.hybridScore >= 0.4) {
+          results.push({
+            ayat: res,
+            surahNumber: surah.number,
+            surahName: surah.name.short,
+            matchCount: 1,
+            matchType: "arab",
+            searchLanguage: hasArabic ? "arab" : "indonesia",
+          })
+        }
+      })
+    }
+
+    results.sort((a, b) => b.matchCount - a.matchCount)
+    setSearchResults(results)
+    setShowSearchResults(true)
+
+    if (results.length === 0) alert("Tidak ada hasil yang ditemukan di cache IndexedDB")
+  }
+
+  const performSearch = (term: string) => {
+    performGlobalSearch(term)
+    setSearchText(term)
+  }
+
+  const handleSelectSearchResult = (surahNum: number, ayatId: number) => {
+    sessionStorage.setItem("targetAyat", ayatId.toString())
+    navigate(`/surah/${surahNum}`)
+  }
 
   if (loading) {
     return (
@@ -95,46 +137,24 @@ export default function SurahList() {
     )
   }
 
-  // ... (Sisa JSX tetap sama)
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <header className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 bg-primary/10 rounded-full">
-              <BookOpen className="h-8 w-8 text-primary" />
-            </div>
-            <h1 className="text-5xl sm:text-6xl font-serif font-bold text-foreground">القرآن الكريم</h1>
+        <header className="mb-12">
+          <div className="mb-8 max-w- mx-auto">
+            
+          <UnifiedSearchBar
+              searchText={searchText}
+              setSearchText={setSearchText}
+              onSearch={performSearch}
+              recognitionAvailable={recognitionAvailable}
+            />
           </div>
-          <h2 className="text-2xl sm:text-3xl font-serif text-primary mb-3">Daftar Surah Al-Qur'an</h2>
-          <p className="text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Jelajahi 114 Surah dengan Tafsir Mendalam & Pencarian Ayat Cerdas
-          </p>
-          <div className="flex items-center justify-center gap-2 mt-6">
-            <div className="h-1 w-12 bg-primary rounded-full"></div>
-            <Sparkles className="h-4 w-4 text-primary" />
-            <div className="h-1 w-12 bg-primary rounded-full"></div>
-          </div>
+          <Hero />
         </header>
 
-        <div className="mb-12 max-w-2xl mx-auto">
-          <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-300"></div>
-            <div className="relative bg-card rounded-lg border border-border p-1">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
-              <Input
-                type="text"
-                placeholder="Cari surah berdasarkan nama atau nomor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 py-3 bg-transparent border-0 text-base focus:outline-none focus:ring-0"
-              />
-            </div>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {filteredList.map((surah) => (
+          {surahList.map((surah) => (
             <Card
               key={surah.number}
               className="cursor-pointer group overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/50 hover:-translate-y-1"
@@ -164,7 +184,7 @@ export default function SurahList() {
                     <BookOpen className="h-4 w-4 text-primary/60" />
                     <span className="font-medium">{surah.numberOfVerses} Ayat</span>
                   </span>
-                  <span className="px-3 py-1 bg-accent/20 text-accent-foreground rounded-full text-xs font-medium">
+                  <span className="px-3 py-1 bg-accent/20 text-amber-900 rounded-full text-xs font-medium">
                     {surah.revelation.id}
                   </span>
                 </div>
@@ -173,20 +193,20 @@ export default function SurahList() {
           ))}
         </div>
 
-        {filteredList.length === 0 && (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted mb-6">
-              <Search className="h-10 w-10 text-muted-foreground opacity-50" />
-            </div>
-            <p className="text-muted-foreground text-lg font-medium">Tidak ada surah yang cocok</p>
-            <p className="text-muted-foreground text-sm mt-2">Coba cari dengan nama atau nomor surah lain</p>
-          </div>
-        )}
+        <SearchResultsModal
+          isOpen={showSearchResults}
+          onClose={() => setShowSearchResults(false)}
+          results={searchResults}
+          searchTerm={searchText}
+          onSelectResult={handleSelectSearchResult}
+        />
 
         <footer className="text-center pt-12 border-t border-border/50">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/5 rounded-full mb-4">
             <Sparkles className="h-4 w-4 text-primary" />
-            <p className="text-sm text-muted-foreground">Klik surah untuk membaca ayat, tafsir, dan pencarian suara</p>
+            <p className="text-sm text-muted-foreground">
+              Klik surah untuk membaca ayat, tafsir, dan pencarian suara
+            </p>
           </div>
         </footer>
       </div>

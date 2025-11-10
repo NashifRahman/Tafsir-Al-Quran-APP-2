@@ -74,6 +74,13 @@ export async function getCachedSurahList(): Promise<SurahListItem[] | null> {
   return null;
 }
 
+
+// --- Fungsi **BARU** untuk SURAH_DETAIL_STORE_NAME ---
+
+/**
+ * Menyimpan detail satu surah ke IndexedDB (store: surahDetails).
+ * @param surahData Data detail surah (termasuk semua ayat).
+ */
 export async function cacheSurahDetail(surahData: SurahData[]): Promise<void> {
   const conn = await initDB();
   const tx = conn.transaction(SURAH_DETAIL_STORE_NAME, 'readwrite');
@@ -87,38 +94,43 @@ export async function cacheSurahDetail(surahData: SurahData[]): Promise<void> {
 }
 
 
-// --- Fungsi **BARU** untuk SURAH_DETAIL_STORE_NAME ---
-
-/**
- * Menyimpan detail satu surah ke IndexedDB (store: surahDetails).
- * @param surahData Data detail surah (termasuk semua ayat).
- */
-// export async function cacheSurahDetail(surahData: SurahData): Promise<void> {
-//   const conn = await initDB();
-//   const tx = conn.transaction(SURAH_DETAIL_STORE_NAME, 'readwrite');
-//   const store = tx.objectStore(SURAH_DETAIL_STORE_NAME);
-  
-//   // Karena keyPath-nya adalah 'number', put akan menimpa data lama
-//   await store.put(surahData); 
-//   await tx.done;
-// }
-
 /**
  * Mengambil detail surah berdasarkan nomor dari IndexedDB (store: surahDetails).
  * @param surahNumber Nomor surah yang dicari (1-114).
  * @returns Detail surah (SurahData) atau null jika tidak ada.
  */
-// export async function getCachedSurahDetail(surahNumber: number): Promise<AllSurahData | null> {
-//   const conn = await initDB();
-//   // Transaksi hanya pada store detail surah
-//   const tx = conn.transaction(SURAH_DETAIL_STORE_NAME, 'readonly');
-//   const store = tx.objectStore(SURAH_DETAIL_STORE_NAME);
+export async function getCachedSurahDetail(): Promise<SurahData[] | null> {
+  const conn = await initDB();
+  const tx = conn.transaction(SURAH_DETAIL_STORE_NAME, 'readonly');
+  const store = tx.objectStore(SURAH_DETAIL_STORE_NAME);
   
-//   const surahDetail = await store.get(surahNumber);
+  const allSurah = await store.getAll();
   
-//   if (surahDetail) {
-//     return surahDetail as AllSurahData;
-//   }
+  if (allSurah && allSurah.length > 0) {
+    return allSurah as SurahData[];
+  }
   
-//   return null;
-// }
+  return null;
+}
+
+/**
+ * Mengambil satu surah detail berdasarkan nomor (dari cache).
+ */
+export async function getCachedSurahByNumber(surahNumber: number): Promise<SurahData | null> {
+  const conn = await initDB();
+  const tx = conn.transaction(SURAH_DETAIL_STORE_NAME, 'readonly');
+  const store = tx.objectStore(SURAH_DETAIL_STORE_NAME);
+  const surah = await store.get(surahNumber);
+  return surah ?? null;
+}
+
+/**
+ * Mengambil semua surah detail dari cache untuk pencarian global.
+ */
+export async function getAllCachedSurahDetails(): Promise<SurahData[]> {
+  const conn = await initDB();
+  const tx = conn.transaction(SURAH_DETAIL_STORE_NAME, 'readonly');
+  const store = tx.objectStore(SURAH_DETAIL_STORE_NAME);
+  const all = await store.getAll();
+  return all ?? [];
+}

@@ -257,7 +257,7 @@ export class HybridSearchEngine {
   }
 
   search(query: string, topK = 20): SearchResult[] {
-    console.log("[v0] Searching for:", query)
+    // console.log("[v0] Searching for:", query)
 
     const bm25Results = this.bm25.search(query)
     const bm25Map = new Map(bm25Results.map((r) => [r.item.id, r.score]))
@@ -302,7 +302,7 @@ export class HybridSearchEngine {
     })
 
     const sorted = hybridResults.sort((a, b) => b.hybridScore - a.hybridScore).slice(0, topK)
-    console.log("[v0] Found results:", sorted.length)
+    // console.log("[v0] Found results:", sorted.length)
     return sorted
   }
 
