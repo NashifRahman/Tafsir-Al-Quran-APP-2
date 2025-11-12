@@ -42,8 +42,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   // const [allSurahData, setAllSurahData] = useState<Map<number, SurahData>>(new Map())
-  const [hybridSearchEngine, setHybridSearchEngine] =
-    useState<HybridSearchEngine | null>(null);
+  const [, setHybridSearchEngine] = useState<HybridSearchEngine | null>(null);
 
   const ayatRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
@@ -82,8 +81,11 @@ export default function App() {
         const targetAyat = sessionStorage.getItem("targetAyat");
         if (targetAyat) {
           const ayatNum = Number.parseInt(targetAyat);
-          if (ayatNum >= 1 && ayatNum <= data.verses.length)
-            setCurrentAyat(ayatNum);
+          if (ayatNum >= 1 && ayatNum <= data.verses.length) {
+            setTimeout(() => {
+              setCurrentAyat(ayatNum);
+            }, 100);
+          }
           sessionStorage.removeItem("targetAyat");
         } else {
           setCurrentAyat(1);
@@ -283,7 +285,7 @@ export default function App() {
           <Button
             variant="outline"
             onClick={() => navigate("/")}
-            className="gap-2 hover:bg-primary/10 hover:border-primary transition-all"
+            className="gap-2 hover:bg-primary/10 hover:border-primary hover:text-primary transition-all"
           >
             <ChevronLeft className="h-4 w-4" />
             Daftar Surah

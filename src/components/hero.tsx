@@ -19,7 +19,7 @@ export default function Hero() {
   }, [])
 
   return (
-     <section className="relative overflow-hidden bg-black rounded-3xl text-white shadow-lg">
+     <section className="relative overflow-hidden bg-black rounded-3xl text-white shadow-lg mb-10">
       <div className="absolute inset-0">
         <img
           src={Banner}

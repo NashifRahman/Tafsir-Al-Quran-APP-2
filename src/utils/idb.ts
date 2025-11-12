@@ -22,7 +22,7 @@ async function initDB() {
   
   // Perhatikan DB_VERSION = 2
   db = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db, oldVersion, newVersion, transaction) {
+    upgrade(db) {
       // 1. Membuat object store untuk Daftar Surah (jika belum ada)
       if (!db.objectStoreNames.contains(SURAH_LIST_STORE_NAME)) {
         db.createObjectStore(SURAH_LIST_STORE_NAME, { keyPath: 'number' });
