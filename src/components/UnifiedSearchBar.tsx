@@ -282,7 +282,8 @@ export default function UnifiedSearchBar({
       )}
 
       {recognitionAvailable && !isListening && !detectedMode && (
-        <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md">
+        <div className="text-sm black/100 bg-gray-400
+         p-3 rounded-md">
           <p className="font-medium mb-1">💡 Tips Pencarian:</p>
           <ul className="text-xs space-y-1 ml-4 list-disc">
             <li>Cari ayat di Surah saat ini: ketik nomor ayat saja, misal "7" untuk Ayat 7</li>

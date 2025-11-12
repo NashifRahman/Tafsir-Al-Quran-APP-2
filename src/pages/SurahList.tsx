@@ -227,10 +227,10 @@ export default function SurahList() {
               className="cursor-pointer group overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/50 hover:-translate-y-1"
               onClick={() => navigate(`/surah/${surah.number}`)}
             >
-              <CardHeader className="pb-4 from-primary/5 to-transparent">
+              <CardHeader className="pb-4 bg-linear-to-br from-primary/5 to-transparent">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="w-14 h-14 rounded-full from-primary to-primary/70 text-primary-foreground flex items-center justify-center font-serif font-bold text-lg group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <div className="w-14 h-14 rounded-full bg-linear-to-br from-primary to-primary/70 text-primary-foreground flex items-center justify-center font-serif font-bold text-lg group-hover:scale-110 transition-transform duration-300 shadow-lg">
                       {surah.number}
                     </div>
                     <div className="flex-1">
