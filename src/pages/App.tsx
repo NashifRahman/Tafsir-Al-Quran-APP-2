@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // import Fuse from "fuse.js";
 import { fetchSurah, type SurahData } from "@/services/QuranAPI";
@@ -11,14 +11,15 @@ import {
 } from "@/utils/idb";
 import { HybridSearchEngine } from "@/services/hybrid-search";
 import Header from "@/components/header";
-import NavigationButtons from "@/components/NavigationButtons";
-import AyatCard from "@/components/AyatCard";
-import AyatPagination from "@/components/AyatPagination";
+// import NavigationButtons from "@/components/NavigationButtons";
+// import AyatCard from "@/components/AyatCard";
+// import AyatPagination from "@/components/AyatPagination";
 import Footer from "@/components/Footer";
 import UnifiedSearchBar from "@/components/UnifiedSearchBar";
 import SearchResultsModal from "@/components/SearchResultsModal";
 import { Button } from "@/components/ui/button";
 import { Home, ChevronLeft } from "lucide-react";
+import AyatDisplay from "@/components/ayatdisplay";
 
 interface SearchResult {
   ayat: any;
@@ -43,6 +44,8 @@ export default function App() {
   // const [allSurahData, setAllSurahData] = useState<Map<number, SurahData>>(new Map())
   const [hybridSearchEngine, setHybridSearchEngine] =
     useState<HybridSearchEngine | null>(null);
+
+  const ayatRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
   useEffect(() => {
     const SpeechRecognition =
@@ -95,52 +98,93 @@ export default function App() {
     loadData();
   }, [surahNumber]);
 
+  // Scroll otomatis ke ayat aktif
+  useEffect(() => {
+    const el = ayatRefs.current.get(currentAyat);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [currentAyat]);
+
+  // 🔍 Pencarian Global
   const performGlobalSearch = async (term: string) => {
-  if (!term.trim()) {
-    alert("Masukkan kata kunci pencarian")
-    return
-  }
+    if (!term.trim()) {
+      alert("Masukkan kata kunci pencarian");
+      return;
+    }
 
-  // Ambil semua surah dari cache
-  const allSurah = await getAllCachedSurahDetails()
-
-  if (!allSurah || allSurah.length === 0) {
-    alert("Cache kosong. Silakan buka beberapa surah terlebih dahulu agar data tersimpan.")
-    return
-  }
-
-  const hasArabic = /[\u0600-\u06FF]/.test(term)
-  const cleanTerm = hasArabic
-    ? term.trim().normalize("NFKC")
-    : term.toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, "").normalize("NFKC")
-
-  const results: SearchResult[] = []
-
-  for (const surah of allSurah) {
-    const hybrid = new HybridSearchEngine(surah.verses)
-    const found = hybrid.search(cleanTerm, 50)
-    found.forEach((res) => {
-      if (res.hybridScore >= 0.4) {
-        results.push({
-          ayat: res,
-          surahNumber: surah.number,
-          surahName: surah.name.short,
-          matchCount: 1,
-          matchType: "arab",
-          searchLanguage: hasArabic ? "arab" : "indonesia",
-        })
+    // 🔹 Jika formatnya angka seperti "1,7" → langsung buka surah dan ayat tertentu
+    const numPattern = /^(\d+)\s*,\s*(\d+)$/;
+    const match = term.match(numPattern);
+    if (match) {
+      const surahNum = parseInt(match[1]);
+      const ayatNum = parseInt(match[2]);
+      if (!isNaN(surahNum) && !isNaN(ayatNum)) {
+        sessionStorage.setItem("targetAyat", ayatNum.toString());
+        navigate(`/surah/${surahNum}`);
+        return;
       }
-    })
-  }
+    }
 
-  results.sort((a, b) => b.matchCount - a.matchCount)
-  setSearchResults(results)
-  setShowSearchResults(true)
+    // 🔹 Jika hanya angka tunggal → lompat ke ayat tertentu di surah saat ini
+    const singleNum = parseInt(term);
+    if (!isNaN(singleNum) && !term.includes(",")) {
+      if (
+        tafsirData &&
+        singleNum >= 1 &&
+        singleNum <= tafsirData.verses.length
+      ) {
+        setCurrentAyat(singleNum);
+        setShowSearchResults(false);
+        return;
+      }
+    }
 
-  if (results.length === 0) alert("Tidak ada hasil yang ditemukan di cache IndexedDB")
-}
-;
+    // 🔹 Lanjutkan pencarian teks seperti biasa
+    const allSurah = await getAllCachedSurahDetails();
 
+    if (!allSurah || allSurah.length === 0) {
+      alert(
+        "Cache kosong. Silakan buka beberapa surah terlebih dahulu agar data tersimpan."
+      );
+      return;
+    }
+
+    const hasArabic = /[\u0600-\u06FF]/.test(term);
+    const cleanTerm = hasArabic
+      ? term.trim().normalize("NFKC")
+      : term
+          .toLowerCase()
+          .trim()
+          .replace(/[^\p{L}\p{N}\s]/gu, "")
+          .normalize("NFKC");
+
+    const results: SearchResult[] = [];
+
+    for (const surah of allSurah) {
+      const hybrid = new HybridSearchEngine(surah.verses);
+      const found = hybrid.search(cleanTerm, 50);
+      found.forEach((res) => {
+        if (res.hybridScore >= 0.4) {
+          results.push({
+            ayat: res,
+            surahNumber: surah.number,
+            surahName: surah.name.short,
+            matchCount: 1,
+            matchType: "arab",
+            searchLanguage: hasArabic ? "arab" : "indonesia",
+          });
+        }
+      });
+    }
+
+    results.sort((a, b) => b.matchCount - a.matchCount);
+    setSearchResults(results);
+    setShowSearchResults(true);
+
+    if (results.length === 0)
+      alert("Tidak ada hasil yang ditemukan di cache IndexedDB");
+  };
   // const countMatches = (
   //   ayat: any,
   //   searchTerm: string,
@@ -161,8 +205,9 @@ export default function App() {
   //   return count;
   // };
 
+  // 🔎 Pencarian utama (dengan integrasi nomor ayat & surah)
   const performSearch = (term: string, isRecitation = false) => {
-    if (!tafsirData || !term.trim()) {
+    if (!term.trim()) {
       alert("Masukkan kata kunci pencarian");
       return;
     }
@@ -181,7 +226,7 @@ export default function App() {
     }
 
     console.log(
-      "[v0] Performing search for:",
+      "[v1] Performing search for:",
       cleanTerm,
       "isRecitation:",
       isRecitation
@@ -197,9 +242,9 @@ export default function App() {
     setCurrentAyat(ayatId);
   };
 
-  const currentTafsir = tafsirData?.verses.find(
-    (ayat) => ayat.id === currentAyat
-  );
+  // const currentTafsir = tafsirData?.verses.find(
+  //   (ayat) => ayat.id === currentAyat
+  // );
 
   if (loading)
     return (
@@ -265,7 +310,7 @@ export default function App() {
           onSelectResult={handleSelectSearchResult}
         />
 
-        <NavigationButtons
+        {/* <NavigationButtons
           current={currentAyat}
           total={tafsirData.verses.length}
           onPrev={() => setCurrentAyat((c) => Math.max(1, c - 1))}
@@ -275,20 +320,43 @@ export default function App() {
         />
 
         {currentTafsir && tafsirData && (
-          <AyatCard
+          <div>
+            <AyatCard
             {...currentTafsir}
             name={tafsirData?.name.short}
             transliteration={tafsirData?.name.transliteration.id}
             translation={tafsirData?.name.translation.id}
             searchTerm={searchText}
           />
+          </div>
         )}
 
         <AyatPagination
           total={tafsirData.verses.length}
           current={currentAyat}
           onSelect={setCurrentAyat}
-        />
+        /> */}
+
+        <div>
+          {tafsirData.verses.map((ayat) => (
+            <div
+              key={ayat.id}
+              ref={(el) => el && ayatRefs.current.set(ayat.id, el)}
+              className={
+                ayat.id === currentAyat
+                  ? "rounded-xl bg-yellow-100 shadow-md p-2 transition-all duration-500"
+                  : ""
+              }
+            >
+              <AyatDisplay
+                number={ayat.id}
+                arab={ayat.arab}
+                translation={ayat.terjemahan}
+                transliteration={ayat.latin}
+              />
+            </div>
+          ))}
+        </div>
 
         <Footer
           name={tafsirData?.name.short}
