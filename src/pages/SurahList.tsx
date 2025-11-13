@@ -7,7 +7,7 @@ import Hero from "@/components/hero";
 import { getCachedSurahList,cacheSurahList,cacheSurahDetail,getAllCachedSurahDetails,} from "@/utils/idb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Sparkles } from "lucide-react";
-import UnifiedSearchBar from "@/components/UnifiedSearchBar";
+import UnifiedSearchBar from "@/components/Homecardbar";
 import SearchResultsModal from "@/components/SearchResultsModal";
 import { HybridSearchEngine } from "@/services/hybrid-search";
 
