@@ -5,19 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Search } from "lucide-react";
 
-interface UnifiedSearchBarProps {
+interface HomeSearchBarProps {
   searchText: string;
   setSearchText: (text: string) => void;
   onSearch: (text: string, isRecitation: boolean) => void;
   recognitionAvailable: boolean;
 }
 
-export default function UnifiedSearchBar({
+export default function HomeSearchBar({
   searchText,
   setSearchText,
   onSearch,
   recognitionAvailable,
-}: UnifiedSearchBarProps) {
+}: HomeSearchBarProps) {
   const [isListening, setIsListening] = useState(false);
   const [detectedMode, setDetectedMode] = useState<string>("");
   const recognitionRef = useRef<any>(null);

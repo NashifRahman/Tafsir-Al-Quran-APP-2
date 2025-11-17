@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+// BARU: Impor useEffect
+import { useState} from "react";
 
 import { Play, Copy, Share2, Check } from "lucide-react";
 
@@ -9,8 +10,8 @@ interface AyatDisplayProps {
   transliteration: string;
   translation: string;
   onPlay?: () => void;
-  // onCopy?: () => void;
   onShare?: () => void;
+  isHighlighted?: boolean;
 }
 
 export default function AyatDisplay({
@@ -19,17 +20,23 @@ export default function AyatDisplay({
   transliteration,
   translation,
   onPlay,
-  // onCopy,
   onShare,
+  isHighlighted = false,
 }: AyatDisplayProps) {
-
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
   
-    const handleCopy = () => {
-      navigator.clipboard.writeText(arab || "")
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
+  // BARU: State internal untuk mengontrol highlight
+  
+  const handleCopy = () => {
+    navigator.clipboard.writeText(arab || "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // DIUBAH: Gunakan state 'internalHighlight'
+  const highlightClass = isHighlighted
+    ? "bg-yellow-100 shadow-md rounded-xl p-2 transition-all duration-500"
+    : " transition-all duration-500";
 
   return (
     <div className="border-t border-gray-300 pt-6 pb-4 first:border-none">
@@ -40,15 +47,15 @@ export default function AyatDisplay({
         </div>
       </div>
 
-      {/* Teks Arab */}
-      <p className="text-4xl font-Amiri text-right leading-loose mb-3">
+      {/* Teks Arab (menggunakan highlightClass) */}
+      <p
+        className={`text-4xl font-Amiri text-right leading-loose mb-3 ${highlightClass}`}
+      >
         {arab}
       </p>
 
       {/* Transliterasi */}
-      <p className="font-semibold text-[#a98b49] mb-2">
-        {transliteration}
-      </p>
+      <p className="font-semibold text-[#a98b49] mb-2">{transliteration}</p>
 
       {/* Terjemahan */}
       <p className="text-gray-700 mb-3">{translation}</p>
@@ -65,7 +72,11 @@ export default function AyatDisplay({
           onClick={handleCopy}
           className="hover:text-blue-600 transition-colors"
         >
-          {copied ? (<Check className="h-4 w-4 text-blue-600" />) : (<Copy size={20} />)}
+          {copied ? (
+            <Check className="h-4 w-4 text-blue-600" />
+          ) : (
+            <Copy size={20} />
+          )}
         </button>
         <button
           onClick={onShare}

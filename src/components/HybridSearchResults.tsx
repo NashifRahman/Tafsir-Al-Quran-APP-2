@@ -19,16 +19,16 @@ export default function HybridSearchResults({
   const metrics = calculateSearchMetrics(results, executionTime)
   const grouped = groupResultsByMatchType(results)
 
-  const getMatchTypeBadge = (matchType: "keyword" | "semantic" | "both") => {
-    switch (matchType) {
-      case "keyword":
-        return <Badge className="bg-blue-500">Keyword Match</Badge>
-      case "semantic":
-        return <Badge className="bg-purple-500">Semantic Match</Badge>
-      case "both":
-        return <Badge className="bg-green-500">Hybrid Match</Badge>
-    }
-  }
+  // const getMatchTypeBadge = (matchType: "keyword" | "semantic" | "both") => {
+  //   switch (matchType) {
+  //     case "keyword":
+  //       return <Badge className="bg-blue-500">Keyword Match</Badge>
+  //     case "semantic":
+  //       return <Badge className="bg-purple-500">Semantic Match</Badge>
+  //     case "both":
+  //       return <Badge className="bg-green-500">Hybrid Match</Badge>
+  //   }
+  // }
 
   const getScoreColor = (score: number) => {
     if (score >= 0.8) return "text-green-600"
@@ -61,7 +61,7 @@ export default function HybridSearchResults({
   return (
     <div className="space-y-6">
       {/* Search Metrics */}
-      <Card className="p-4 bg-gradient-to-r from-blue-50 to-purple-50">
+      <Card className="p-4 bg-linear-to-r from-blue-50 to-purple-50">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <p className="text-sm text-gray-600">Total Hasil</p>

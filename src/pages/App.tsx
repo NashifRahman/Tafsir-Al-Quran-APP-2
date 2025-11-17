@@ -35,6 +35,7 @@ export default function App() {
   const navigate = useNavigate();
   const [tafsirData, setTafsirData] = useState<SurahData | null>(null);
   const [currentAyat, setCurrentAyat] = useState<number>(1);
+  const [highlightedAyat, setHighlightedAyat] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState<string>("");
@@ -52,6 +53,14 @@ export default function App() {
       (window as any).webkitSpeechRecognition;
     setRecognitionAvailable(!!SpeechRecognition);
   }, []);
+
+  const highlightAyat = (ayatNumber: number) => {
+    setHighlightedAyat(ayatNumber);
+    setCurrentAyat(ayatNumber);
+    setTimeout(() => {
+      setHighlightedAyat(null);
+    }, 2000);
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -83,12 +92,12 @@ export default function App() {
           const ayatNum = Number.parseInt(targetAyat);
           if (ayatNum >= 1 && ayatNum <= data.verses.length) {
             setTimeout(() => {
-              setCurrentAyat(ayatNum);
+              highlightAyat(ayatNum);
             }, 100);
           }
           sessionStorage.removeItem("targetAyat");
         } else {
-          setCurrentAyat(1);
+          highlightAyat(1);
         }
       } catch (err) {
         console.error(err);
@@ -136,7 +145,7 @@ export default function App() {
         singleNum >= 1 &&
         singleNum <= tafsirData.verses.length
       ) {
-        setCurrentAyat(singleNum);
+        highlightAyat(singleNum);
         setShowSearchResults(false);
         return;
       }
@@ -238,10 +247,8 @@ export default function App() {
   };
 
   const handleSelectSearchResult = (surahNum: number, ayatId: number) => {
-    if (surahNum !== tafsirData?.number) {
-      navigate(`/surah/${surahNum}`);
-    }
-    setCurrentAyat(ayatId);
+    sessionStorage.setItem("targetAyat", ayatId.toString());
+    navigate(`/surah/${surahNum}`);
   };
 
   // const currentTafsir = tafsirData?.verses.find(
@@ -344,17 +351,19 @@ export default function App() {
             <div
               key={ayat.id}
               ref={(el) => el && ayatRefs.current.set(ayat.id, el)}
-              className={
-                ayat.id === currentAyat
-                  ? "rounded-xl bg-yellow-100 shadow-md p-2 transition-all duration-500"
-                  : ""
-              }
+              // className={
+              //   ayat.id === currentAyat
+              //     ? "rounded-xl bg-yellow-100 shadow-md p-2 transition-all duration-500"
+              //     : ""
+              // }
             >
               <AyatDisplay
                 number={ayat.id}
                 arab={ayat.arab}
                 translation={ayat.terjemahan}
                 transliteration={ayat.latin}
+                // KIRIMKAN STATUS HIGHLIGHT KE KOMPONEN ANAK
+                isHighlighted={ayat.id === highlightedAyat}
               />
             </div>
           ))}

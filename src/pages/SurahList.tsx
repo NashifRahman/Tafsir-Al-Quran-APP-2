@@ -18,7 +18,7 @@ import {
 } from "@/utils/idb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {  BookOpen, Sparkles } from "lucide-react";
-import UnifiedSearchBar from "@/components/UnifiedSearchBar";
+import HomeSearchBar from "@/components/HomeSearchBar";
 import SearchResultsModal from "@/components/SearchResultsModal";
 import { HybridSearchEngine } from "@/services/hybrid-search";
 
@@ -222,7 +222,7 @@ export default function SurahList() {
         <header className="mb-12">
           <Hero />
           <div className="mb-8 max-w- mx-auto">
-            <UnifiedSearchBar
+            <HomeSearchBar
               searchText={searchText}
               setSearchText={setSearchText}
               onSearch={performSearch}
