@@ -40,9 +40,9 @@ export default function AyatCard({
   const tafsirParts = highlightText(tafsir || "", searchTerm)
 
   return (
-    <Card className="mb-8 shadow-lg border-primary/20 overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10 pb-6">
-        <CardTitle className="text-2xl sm:text-3xl text-center font-serif">
+    <Card className="mb-8 shadow-lg border-primary/20 overflow-y-scroll">
+      <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10 py-5 flex items-center justify-center">
+        <CardTitle className="text-xl sm:text-3xl text-center font-serif">
           <span className="text-primary">{name}</span>
           <span className="text-muted-foreground mx-2">-</span>
           <span className="text-muted-foreground">{transliteration}</span>
@@ -62,7 +62,7 @@ export default function AyatCard({
               {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4 text-primary" />}
             </button>
           </div>
-          <p className="text-4xl sm:text-5xl text-right font-Amiri leading-loose mb-4 text-foreground">
+          <p className="text-2xl sm:text-3xl text-right font-Amiri leading-loose mb-4 text-foreground">
             {renderHighlightedText(arabParts)}
           </p>
           <p className="text-sm text-muted-foreground text-right italic font-medium">

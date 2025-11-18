@@ -325,30 +325,7 @@ export default function UnifiedSearchBar({
         </div>
       )}
 
-      {recognitionAvailable && !isListening && !detectedMode && (
-        <div className="text-sm text-muted-foreground bg-accent/50 p-3 rounded-md">
-          <p className="font-medium mb-1">💡 Tips Pencarian:</p>
-          <ul className="text-xs space-y-1 ml-4 list-disc">
-            <li>
-              Cari ayat di Surah saat ini: ketik nomor ayat saja, misal "7"
-              untuk Ayat 7
-            </li>
-            <li>
-              Cari ayat di Surah lain: ketik "2:255" atau "2 255" untuk Surah 2
-              Ayat 255
-            </li>
-            <li>
-              Cari dengan teks: ketik kata kunci dalam bahasa Arab atau
-              Indonesia
-            </li>
-            <li>
-              Cari dengan suara: klik tombol mikrofon dan ucapkan dalam bahasa
-              Arab atau Indonesia
-            </li>
-            <li>Sistem akan otomatis mendeteksi jenis pencarian</li>
-          </ul>
-        </div>
-      )}
+      {recognitionAvailable && !isListening && !detectedMode }
 
       {/* Status Messages */}
       {isListening && (

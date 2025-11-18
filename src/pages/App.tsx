@@ -13,6 +13,7 @@ import { HybridSearchEngine } from "@/services/hybrid-search";
 import Header from "@/components/header";
 // import NavigationButtons from "@/components/NavigationButtons";
 // import AyatCard from "@/components/AyatCard";
+import AyatPopup from "@/components/DetailedCard"; // 👈 [EDIT] UNCOMMENT INI
 // import AyatPagination from "@/components/AyatPagination";
 import Footer from "@/components/Footer";
 import UnifiedSearchBar from "@/components/UnifiedSearchBar";
@@ -30,6 +31,16 @@ interface SearchResult {
   searchLanguage: "arab" | "indonesia";
 }
 
+// Definisikan tipe untuk ayat, agar lebih aman daripada 'any'
+interface Verse {
+  id: number;
+  arab: string;
+  latin: string;
+  terjemahan: string;
+  tafsir: string; // Pastikan tipe SurahData Anda memiliki ini
+  // tambahkan properti lain jika ada
+}
+
 export default function App() {
   const { surahNumber } = useParams<{ surahNumber: string }>();
   const navigate = useNavigate();
@@ -42,6 +53,11 @@ export default function App() {
   const [recognitionAvailable, setRecognitionAvailable] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  
+  // 👇 [EDIT] UNCOMMENT STATE INI
+  const [selectedAyat, setSelectedAyat] = useState<Verse | null>(null);
+  const [showAyatPopup, setShowAyatPopup] = useState(false);
+  
   // const [allSurahData, setAllSurahData] = useState<Map<number, SurahData>>(new Map())
   const [, setHybridSearchEngine] = useState<HybridSearchEngine | null>(null);
 
@@ -59,8 +75,9 @@ export default function App() {
     setCurrentAyat(ayatNumber);
     setTimeout(() => {
       setHighlightedAyat(null);
+      setCurrentAyat(null as any);
     }, 2000);
-  }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -196,25 +213,6 @@ export default function App() {
     if (results.length === 0)
       alert("Tidak ada hasil yang ditemukan di cache IndexedDB");
   };
-  // const countMatches = (
-  //   ayat: any,
-  //   searchTerm: string,
-  //   hasArabic: boolean
-  // ): number => {
-  //   let count = 0;
-  //   const fields = hasArabic ? ["arab"] : ["terjemahan", "latin", "tafsir"];
-
-  //   fields.forEach((field) => {
-  //     const text = ayat[field] || "";
-  //     const regex = hasArabic
-  //       ? new RegExp(searchTerm, "g")
-  //       : new RegExp(`\\b${searchTerm.toLowerCase()}\\b`, "gi");
-  //     const matches = text.match(regex);
-  //     count += matches ? matches.length : 0;
-  //   });
-
-  //   return count;
-  // };
 
   // 🔎 Pencarian utama (dengan integrasi nomor ayat & surah)
   const performSearch = (term: string, isRecitation = false) => {
@@ -246,10 +244,32 @@ export default function App() {
     setSearchText(term);
   };
 
-  const handleSelectSearchResult = (surahNum: number, ayatId: number) => {
-    sessionStorage.setItem("targetAyat", ayatId.toString());
-    navigate(`/surah/${surahNum}`);
+ const handleSelectSearchResult = (surahNum: number, ayatId: number) => {
+   sessionStorage.setItem("targetAyat", ayatId.toString())
+   navigate(`/surah/${surahNum}`)
+   return
+  // setSelectedAyat(ayatObj) // Ini adalah logika lama Anda
+  // setShowAyatPopup(true)   // yang sekarang kita gunakan untuk tombol detail
+
+  // if (surahNum !== tafsirData?.number) {
+  // }
+
+  // setCurrentAyat(ayatId)
+}
+
+  // 👇 [EDIT] TAMBAHKAN DUA FUNGSI INI
+  // Fungsi untuk membuka popup
+  const handleShowDetail = (ayat: Verse) => {
+    setSelectedAyat(ayat);
+    setShowAyatPopup(true);
   };
+
+  // Fungsi untuk menutup popup
+  const handleClosePopup = () => {
+    setShowAyatPopup(false);
+    setSelectedAyat(null);
+  };
+
 
   // const currentTafsir = tafsirData?.verses.find(
   //   (ayat) => ayat.id === currentAyat
@@ -286,29 +306,31 @@ export default function App() {
   if (!tafsirData) return <div>Tidak ada data.</div>;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-background via-background to-primary/5 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto">
         <div className="mb-8 flex items-center gap-2">
           <Button
             variant="outline"
             onClick={() => navigate("/")}
-            className="gap-2 hover:bg-primary/10 hover:border-primary hover:text-primary transition-all"
+            className="gap-2 bg-white border-white hover:bg-white hover:border-white hover:text-primary transition-all"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-2 w-2 " />
             Daftar Surah
           </Button>
         </div>
-
-        <Header
-          name={tafsirData?.name.long}
-          transliteration={tafsirData?.name.transliteration.id}
-        />
 
         <UnifiedSearchBar
           searchText={searchText}
           setSearchText={setSearchText}
           onSearch={performSearch}
           recognitionAvailable={recognitionAvailable}
+        />
+
+        <Header
+          name={tafsirData?.name.long}
+          transliteration={tafsirData?.name.transliteration.id}
+          numberOfVerses={tafsirData?.numberOfVerses}
+          revelation={tafsirData?.revelation.id}
         />
 
         <SearchResultsModal
@@ -319,43 +341,23 @@ export default function App() {
           onSelectResult={handleSelectSearchResult}
         />
 
-        {/* <NavigationButtons
-          current={currentAyat}
-          total={tafsirData.verses.length}
-          onPrev={() => setCurrentAyat((c) => Math.max(1, c - 1))}
-          onNext={() =>
-            setCurrentAyat((c) => Math.min(tafsirData.verses.length, c + 1))
-          }
+        {/* 👇 [EDIT] TAMBAHKAN RENDER POPUP DI SINI */}
+        <AyatPopup
+          isOpen={showAyatPopup}
+          onClose={handleClosePopup}
+          ayat={selectedAyat}
+          surahName={tafsirData.name.short}
+          transliteration={tafsirData.name.transliteration.id}
+          translation={tafsirData.name.translation.id}
+          // Anda mungkin perlu menambahkan data terjemahan surah di sini
+          // translation={tafsirData.name.translation.id} 
         />
-
-        {currentTafsir && tafsirData && (
-          <div>
-            <AyatCard
-            {...currentTafsir}
-            name={tafsirData?.name.short}
-            transliteration={tafsirData?.name.transliteration.id}
-            translation={tafsirData?.name.translation.id}
-            searchTerm={searchText}
-          />
-          </div>
-        )}
-
-        <AyatPagination
-          total={tafsirData.verses.length}
-          current={currentAyat}
-          onSelect={setCurrentAyat}
-        /> */}
 
         <div>
           {tafsirData.verses.map((ayat) => (
             <div
               key={ayat.id}
               ref={(el) => el && ayatRefs.current.set(ayat.id, el)}
-              // className={
-              //   ayat.id === currentAyat
-              //     ? "rounded-xl bg-yellow-100 shadow-md p-2 transition-all duration-500"
-              //     : ""
-              // }
             >
               <AyatDisplay
                 number={ayat.id}
@@ -364,6 +366,8 @@ export default function App() {
                 transliteration={ayat.latin}
                 // KIRIMKAN STATUS HIGHLIGHT KE KOMPONEN ANAK
                 isHighlighted={ayat.id === highlightedAyat}
+                // 👇 [EDIT] TAMBAHKAN PROP INI
+                onDetail={() => handleShowDetail(ayat as Verse)}
               />
             </div>
           ))}
