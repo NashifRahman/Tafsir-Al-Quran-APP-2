@@ -27,7 +27,7 @@ interface SearchResult {
   surahNumber: number;
   surahName: string;
   matchCount: number;
-  matchType: "arab" | "latin" | "terjemahan" | "tafsir";
+  matchType: "arab" | "latin" | "terjemahan" | "tafsir" | "tafsirLong";
   searchLanguage: "arab" | "indonesia";
 }
 
@@ -38,6 +38,7 @@ interface Verse {
   latin: string;
   terjemahan: string;
   tafsir: string; // Pastikan tipe SurahData Anda memiliki ini
+  tafsirLong?: string;
   // tambahkan properti lain jika ada
 }
 

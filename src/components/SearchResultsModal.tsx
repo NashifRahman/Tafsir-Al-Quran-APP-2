@@ -10,7 +10,7 @@ interface SearchResult {
   surahNumber: number
   surahName: string
   matchCount: number
-  matchType: "arab" | "latin" | "terjemahan" | "tafsir"
+  matchType: "arab" | "latin" | "terjemahan" | "tafsir" | "tafsirLong"
   searchLanguage: "arab" | "indonesia"
 }
 
@@ -91,7 +91,7 @@ export default function SearchResultsModal({
                   </div>
                 </div>
 
-                {/* Tafsir */}
+                {/* Tafsir
                 {result.ayat.tafsir && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">Tafsir</p>
@@ -99,7 +99,7 @@ export default function SearchResultsModal({
                       {renderHighlightedText(highlightText(result.ayat.tafsir, searchTerm))}
                     </div>
                   </div>
-                )}
+                )} */}
 
                 {/* Match Count */}
                 <div className="bg-primary/10 p-3 rounded-lg text-sm">

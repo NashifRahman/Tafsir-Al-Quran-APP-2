@@ -25,6 +25,7 @@ export interface Verse {
   tafsir: {
     id: {
       short: string;
+      long: string;
     };
   };
 }
@@ -35,6 +36,7 @@ export interface Ayat {
   latin: string;
   terjemahan: string;
   tafsir: string;
+  tafsirLong?: string; 
 }
 
 export interface SurahData {
@@ -67,35 +69,6 @@ export interface SurahListItem {
     id: string;
   };
 }
-
-// export interface AllSurahData {
-//   number: number
-//   name: {
-//     short: string
-//     long: string
-//     transliteration: { id: string; en: string }
-//     translation: { id: string; en: string }
-//   }
-//   revelation: { arab: string; id: string; en: string }
-//   verses: Array<{
-//     id: number
-//     arab: string
-//     latin: string
-//     terjemahan: string
-//     tafsir?: string
-//   }>
-// }
-
-// export async function fetchAllSurahData(): Promise<SurahData[]> {
-//   const allSurah: SurahData[] = [];
-//   for (let i = 1; i <= 114; i++) {
-//     const response = await fetch(`https://quran-api-id.vercel.app/surah/${i}`)
-//     if (!response.ok) throw new Error(`Gagal mengambil surah ke-${i}`)
-//     const data = await response.json()
-//     allSurah.push(data)
-//   }
-//   return allSurah
-// }
 
 // Ubah tipe kembalian menjadi array
 export async function fetchAllSurahData(): Promise<SurahData[]> {
@@ -138,6 +111,7 @@ export async function fetchAllSurahData(): Promise<SurahData[]> {
       latin: verse.text.transliteration.en,
       terjemahan: verse.translation.id,
       tafsir: verse.tafsir.id.short,
+      tafsirLong: verse.tafsir.id.long,
     }));
 
     allSurah.push({
@@ -188,6 +162,7 @@ export async function fetchSurah(surahNumber: number): Promise<SurahData> {
     latin: verse.text.transliteration.en,
     terjemahan: verse.translation.id,
     tafsir: verse.tafsir.id.short,
+    tafsirLong: verse.tafsir.id.long,
   }));
 
   return {
