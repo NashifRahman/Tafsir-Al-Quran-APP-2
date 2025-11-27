@@ -1,5 +1,9 @@
 {
   "rewrites": [
+    {
+      "source": "/api-kemenag/:path*",
+      "destination": "https://quran-api.lpmqkemenag.id/:path*"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
