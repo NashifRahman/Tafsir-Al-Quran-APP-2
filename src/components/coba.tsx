@@ -87,7 +87,9 @@ export default function Ayatdiv({
               )}
             </button>
           </div>
-          <p className="text-2xl sm:text-3xl text-right font-ArabFont leading-loose mb-4 text-foreground">
+          <p 
+          dir="rtl"
+          className="text-2xl sm:text-3xl text-right font-ArabFont leading-loose mb-4 text-foreground">
             {arabParts}
           </p>
           <p className="text-sm text-muted-foreground text-right italic font-medium">
