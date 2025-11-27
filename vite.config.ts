@@ -11,4 +11,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server:{
+    proxy:{
+      '/api-kemenag': {
+        target: 'https://quran-api.lpmqkemenag.id', // URL Asli
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-kemenag/, ''), // Hapus prefix saat meneruskan
+      },
+    }
+  }
 })

@@ -54,11 +54,11 @@ export default function App() {
   const [recognitionAvailable, setRecognitionAvailable] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  
+
   // 👇 [EDIT] UNCOMMENT STATE INI
   const [selectedAyat, setSelectedAyat] = useState<Verse | null>(null);
   const [showAyatPopup, setShowAyatPopup] = useState(false);
-  
+
   // const [allSurahData, setAllSurahData] = useState<Map<number, SurahData>>(new Map())
   const [, setHybridSearchEngine] = useState<HybridSearchEngine | null>(null);
 
@@ -82,6 +82,8 @@ export default function App() {
 
   useEffect(() => {
     const loadData = async () => {
+      const user = import.meta.env.VITE_API_USERNAME || "";
+      const Authorization = import.meta.env.VITE_API_TOKEN || "";
       setLoading(true);
       setError(null);
 
@@ -91,15 +93,26 @@ export default function App() {
         // --- Ambil dari cache dulu ---
         let data = await getCachedSurahByNumber(num);
 
-        if (!data) {
+        const isDataIncomplete = !data || !data.verses[0]?.tafsir || data.verses[0].tafsir === "";
+
+        if (isDataIncomplete) {
           console.warn(`⚠️ Surah ${num} tidak ada di cache, ambil dari API`);
-          data = await fetchSurah(num);
+          data = await fetchSurah(num, user, Authorization);
+
+          console.log("Data sebelum disimpan ke DB:", data);
+          if (data.verses[0].tafsir === "") {
+            alert("Peringatan: Data tafsir kosong! Cek koneksi atau token.");
+          }
 
           // Simpan hasil API ke cache
           await cacheSurahDetail([data]);
         } else {
           console.log(`✅ Surah ${num} diambil dari IndexedDB`);
         }
+
+        if (!data) {
+        throw new Error("Gagal memuat data surah (Cache dan API tidak mengembalikan data)");
+      }
 
         setTafsirData(data);
         const hybridEngine = new HybridSearchEngine(data.verses);
@@ -245,18 +258,18 @@ export default function App() {
     setSearchText(term);
   };
 
- const handleSelectSearchResult = (surahNum: number, ayatId: number) => {
-   sessionStorage.setItem("targetAyat", ayatId.toString())
-   navigate(`/surah/${surahNum}`)
-   return
-  // setSelectedAyat(ayatObj) // Ini adalah logika lama Anda
-  // setShowAyatPopup(true)   // yang sekarang kita gunakan untuk tombol detail
+  const handleSelectSearchResult = (surahNum: number, ayatId: number) => {
+    sessionStorage.setItem("targetAyat", ayatId.toString());
+    navigate(`/surah/${surahNum}`);
+    return;
+    // setSelectedAyat(ayatObj) // Ini adalah logika lama Anda
+    // setShowAyatPopup(true)   // yang sekarang kita gunakan untuk tombol detail
 
-  // if (surahNum !== tafsirData?.number) {
-  // }
+    // if (surahNum !== tafsirData?.number) {
+    // }
 
-  // setCurrentAyat(ayatId)
-}
+    // setCurrentAyat(ayatId)
+  };
 
   // 👇 [EDIT] TAMBAHKAN DUA FUNGSI INI
   // Fungsi untuk membuka popup
@@ -270,7 +283,6 @@ export default function App() {
     setShowAyatPopup(false);
     setSelectedAyat(null);
   };
-
 
   // const currentTafsir = tafsirData?.verses.find(
   //   (ayat) => ayat.id === currentAyat
@@ -328,8 +340,8 @@ export default function App() {
         />
 
         <Header
-          name={tafsirData?.name.long}
-          transliteration={tafsirData?.name.transliteration.id}
+          name={tafsirData?.name.short}
+          transliteration={tafsirData?.name.transliteration}
           numberOfVerses={tafsirData?.numberOfVerses}
           revelation={tafsirData?.revelation.id}
         />
@@ -348,10 +360,10 @@ export default function App() {
           onClose={handleClosePopup}
           ayat={selectedAyat}
           surahName={tafsirData.name.short}
-          transliteration={tafsirData.name.transliteration.id}
-          translation={tafsirData.name.translation.id}
+          transliteration={tafsirData.name.transliteration}
+          translation={tafsirData.name.translation}
           // Anda mungkin perlu menambahkan data terjemahan surah di sini
-          // translation={tafsirData.name.translation.id} 
+          // translation={tafsirData.name.translation.id}
         />
 
         <div>
@@ -376,7 +388,7 @@ export default function App() {
 
         <Footer
           name={tafsirData?.name.short}
-          transliteration={tafsirData?.name.transliteration.id}
+          transliteration={tafsirData?.name.transliteration}
         />
       </div>
     </div>

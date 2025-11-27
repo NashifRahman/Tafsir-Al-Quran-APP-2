@@ -7,6 +7,7 @@ import {
   fetchAllSurahData,
   type SurahListItem,
   type SurahData,
+  // type SurahData_1,
 } from "@/services/QuranAPI";
 import Hero from "@/components/hero";
 import {
@@ -50,8 +51,11 @@ export default function SurahList() {
 
   useEffect(() => {
     const loadSurahList = async () => {
+      const user = import.meta.env.VITE_API_USERNAME || "";
+      const Authorization = import.meta.env.VITE_API_TOKEN || "";
       let data: SurahListItem[] | null = null;
       let detail: SurahData[] | null = null;
+      // let detail_1: SurahData_1[] | null = null;
 
       try {
         const cachedData = await getCachedSurahList();
@@ -60,7 +64,7 @@ export default function SurahList() {
           setSurahList(data);
           setFilteredList(data);
           setLoading(false);
-          console.log("✅ Surah list loaded from cache.");
+          console.log("✅ Surah list loaded from IndexedDB.");
         }
       } catch (err) {
         console.error("⚠️ Error loading from IndexedDB:", err);
@@ -68,8 +72,8 @@ export default function SurahList() {
 
       if (!data && !detail) {
         try {
-          const apiData = await fetchSurahList();
-          const apiDetail = await fetchAllSurahData();
+          const apiData = await fetchSurahList(user,Authorization);
+          const apiDetail = await fetchAllSurahData(user,Authorization);
           data = apiData;
           detail = apiDetail;
           setSurahList(data);
@@ -95,9 +99,9 @@ export default function SurahList() {
       const filtered = surahList.filter((surah) => {
         const term = searchText.toLowerCase();
         return (
-          surah.name.transliteration.id.toLowerCase().includes(term) ||
-          surah.name.translation.id.toLowerCase().includes(term) ||
-          surah.number.toString().includes(term)
+          surah.nama.toLowerCase().includes(term) ||
+          surah.arti.toLowerCase().includes(term) ||
+          surah.id.toString().includes(term)
         );
       });
       setFilteredList(filtered);
@@ -234,27 +238,27 @@ export default function SurahList() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {FilteredList.map((surah) => (
             <Card
-              key={surah.number}
+              key={surah.id}
               className="cursor-pointer group overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/50 hover:-translate-y-1"
-              onClick={() => navigate(`/surah/${surah.number}`)}
+              onClick={() => navigate(`/surah/${surah.id}`)}
             >
               <CardHeader className="pb-4 bg-linear-to-br from-primary/5 to-transparent">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-4 flex-1">
                     <div className="w-14 h-14 rounded-full bg-linear-to-br from-primary to-primary/70 text-primary-foreground flex items-center justify-center font-serif font-bold text-lg group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                      {surah.number}
+                      {surah.id}
                     </div>
                     <div className="flex-1">
                       <CardTitle className="text-lg font-serif group-hover:text-primary transition-colors duration-300">
-                        {surah.name.transliteration.id}
+                        {surah.nama}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {surah.name.translation.id}
+                        {surah.arti}
                       </p>
                     </div>
                   </div>
-                  <div className="text-3xl font-Amiri text-primary/60 group-hover:text-primary transition-colors">
-                    {surah.name.short}
+                  <div className="text-3xl font-ArabFont text-primary/60 group-hover:text-primary transition-colors">
+                    {surah.arabic}
                   </div>
                 </div>
               </CardHeader>
@@ -263,11 +267,11 @@ export default function SurahList() {
                   <span className="flex items-center gap-2 text-muted-foreground">
                     <BookOpen className="h-4 w-4 text-primary/60" />
                     <span className="font-medium">
-                      {surah.numberOfVerses} Ayat
+                      {surah.jmlAyat} Ayat
                     </span>
                   </span>
                   <span className="px-3 py-1 bg-accent/20 text-amber-900 rounded-full text-xs font-medium">
-                    {surah.revelation.id}
+                    {surah.kategori}
                   </span>
                 </div>
               </CardContent>

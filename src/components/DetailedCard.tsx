@@ -49,7 +49,7 @@ export default function AyatPopup({
           latin={ayat.latin}
           terjemahan={ayat.terjemahan}
           tafsir={ayat.tafsir} // Pastikan 'ayat' memiliki properti 'tafsir'
-          // tafsirLong={ayat.tafsirLong} 
+          tafsirLong={ayat.tafsirLong} 
         />
         {/* Footer */}
         <div className="bg-white border-t p-4 flex justify-end">

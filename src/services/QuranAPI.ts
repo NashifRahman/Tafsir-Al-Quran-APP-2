@@ -1,314 +1,206 @@
-export interface SuratName {
-  long: string;
-  short: string;
-  transliteration: {
-    id: string;
-  };
-  translation: {
-    id: string;
-  };
+// --- DEFINISI TIPE DATA ---
+
+export interface SurahListItem {
+  id: number;
+  nama: string;
+  arabic: string;
+  arti: string;
+  kategori_ar: string;
+  kategori: string;
+  jmlAyat: number;
+  ayat_ar: string;
 }
 
-export interface Verse {
-  number: {
-    inSurah: number;
-  };
-  text: {
-    arab: string;
-    transliteration: {
-      en: string;
-    };
-  };
-  translation: {
-    id: string;
-  };
-  tafsir: {
-    id: {
-      short: string;
-      long: string;
-    };
-  };
+export interface SurahLPMQ {
+  short: string;
+  transliteration: string;
+  translation: string;
+}
+
+// Interface respon dari /ayat/local/{surahNumber}
+// Perhatikan field 'id' adalah Global ID yang akan kita pakai untuk fetch tafsir
+interface KemenagVerseItem {
+  id: number; // <-- Global ID (Contoh: 8 untuk Al-Baqarah ayat 1)
+  surah: number;
+  ayat: number;
+  teks_msi_usmani: string;
+  teks: string;
+  terjemah: string;
+}
+
+// Interface respon dari /ayat/local/tafsir/{globalId}
+interface KemenagTafsirItem {
+  id: number;
+  surah: number;
+  ayat: number;
+  teks: string;    // Tafsir Wajiz (Ringkas)
+  tahlili: string; // Tafsir Tahlili (Panjang)
 }
 
 export interface Ayat {
   id: number;
+  globalId: number; // Tambahan: Menyimpan ID global untuk referensi
   arab: string;
   latin: string;
   terjemahan: string;
   tafsir: string;
-  tafsirLong?: string; 
+  tafsirLong: string;
 }
 
 export interface SurahData {
   number: number;
-  name: SuratName;
+  name: SurahLPMQ;
   verses: Ayat[];
   numberOfVerses: number;
   revelation: {
     arab: string;
-    en: string;
     id: string;
   };
 }
 
-export interface SurahListItem {
-  number: number;
-  name: {
-    short: string;
-    long: string;
-    transliteration: {
-      id: string;
-    };
-    translation: {
-      id: string;
-    };
-  };
-  numberOfVerses: number;
-  revelation: {
-    arab: string;
-    id: string;
-  };
-}
+// --- FUNGSI API ---
 
-// Ubah tipe kembalian menjadi array
-export async function fetchAllSurahData(): Promise<SurahData[]> {
-  const allSurah: SurahData[] = [];
-
-  // Gunakan Promise.all untuk mengambil data secara paralel agar lebih cepat (Direkomendasikan)
-  const surahNumbers = Array.from({ length: 114 }, (_, i) => i + 1);
-  const fetchPromises = surahNumbers.map((i) =>
-    fetch(`https://quran-api-id.vercel.app/surah/${i}`)
-  );
-
-  const responses = await Promise.all(fetchPromises);
-
-  for (let i = 0; i < responses.length; i++) {
-    const res = responses[i];
-    const surahNumber = i + 1;
-
-    if (!res.ok)
-      throw new Error(`HTTP Error ${res.status} for surah ${surahNumber}`);
-
-    const data = await res.json();
-
-    const NameData: SuratName = {
-      long: data.data.name.long,
-      short: data.data.name.short,
-      transliteration: { id: data.data.name.transliteration.id },
-      translation: { id: data.data.name.translation.id },
-    };
-
-    const verses = data.data?.verses;
-    if (!verses || !Array.isArray(verses)) {
-      throw new Error(
-        `Struktur data API tidak valid untuk surah ${surahNumber}`
-      );
-    }
-
-    const ayatList: Ayat[] = verses.map((verse: Verse) => ({
-      id: verse.number.inSurah,
-      arab: verse.text.arab,
-      latin: verse.text.transliteration.en,
-      terjemahan: verse.translation.id,
-      tafsir: verse.tafsir.id.short,
-      tafsirLong: verse.tafsir.id.long,
-    }));
-
-    allSurah.push({
-      number: data.data.number,
-      name: NameData,
-      verses: ayatList,
-      numberOfVerses: data.data.numberOfVerses,
-      revelation: data.data.revelation,
-    });
-  }
-
-  // Kembalikan seluruh array surah
-  return allSurah;
-}
-
-// Fetch daftar semua surah
-export async function fetchSurahList(): Promise<SurahListItem[]> {
-  const res = await fetch("https://quran-api-id.vercel.app/surah");
+// 1. Fetch List Surah (Metadata)
+export async function fetchSurahList(user: string, Authorization: string): Promise<SurahListItem[]> {
+  const res = await fetch(`/api-kemenag/api-alquran/surah/local/1/114`, {
+    headers: { user, Authorization }
+  });
   if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
   const data = await res.json();
   return data.data || [];
 }
 
-// Fetch surah berdasarkan nomor
-export async function fetchSurah(surahNumber: number): Promise<SurahData> {
-  const res = await fetch(
-    `https://quran-api-id.vercel.app/surah/${surahNumber}`
-  );
-  if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-
-  const data = await res.json();
-
-  const NameData: SuratName = {
-    long: data.data.name.long,
-    short: data.data.name.short,
-    transliteration: { id: data.data.name.transliteration.id },
-    translation: { id: data.data.name.translation.id },
-  };
-
-  const verses = data.data?.verses;
-  if (!verses || !Array.isArray(verses)) {
-    throw new Error("Struktur data API tidak valid");
-  }
-
-  const ayatList: Ayat[] = verses.map((verse: Verse) => ({
-    id: verse.number.inSurah,
-    arab: verse.text.arab,
-    latin: verse.text.transliteration.en,
-    terjemahan: verse.translation.id,
-    tafsir: verse.tafsir.id.short,
-    tafsirLong: verse.tafsir.id.long,
-  }));
-
-  return {
-    number: data.data.number,
-    name: NameData,
-    verses: ayatList,
-    numberOfVerses: data.data.numberOfVerses,
-    revelation: data.data.revelation,
-  };
-}
-
-// Backward compatibility untuk Al-Mulk
-export async function fetchAlMulk(): Promise<SurahData> {
-  return fetchSurah(67);
-}
-
-import { HybridSearchEngine, type SearchResult } from "./hybrid-search";
-import { EmbeddingService } from "./embedding-service";
-
-let hybridSearchEngine: HybridSearchEngine | null = null;
-let allVerses: Ayat[] = [];
-
-export async function hybridSearchVerses(
-  query: string,
-  topK = 20
-): Promise<SearchResult[]> {
-  // Initialize hybrid search engine if not already done
-  if (!hybridSearchEngine || allVerses.length === 0) {
-    // Fetch all verses from all surahs
-    const surahList = await fetchSurahList();
-    allVerses = [];
-
-    for (const surah of surahList) {
-      const surahData = await fetchSurah(surah.number);
-      allVerses = allVerses.concat(surahData.verses);
-    }
-
-    hybridSearchEngine = new HybridSearchEngine(allVerses, {
-      bm25Weight: 0.5,
-      semanticWeight: 0.5,
-      minBM25Threshold: 0.05,
-      minSemanticThreshold: 0.2,
-    });
-
-    // Index documents untuk vector database
-    const embeddingService = EmbeddingService.getInstance();
-    embeddingService.indexDocuments(allVerses);
-  }
-
+// 2. Fetch Detail Surah (Verses + Tafsir by Global ID)
+export async function fetchSurah(surahNumber: number, user: string, Authorization: string): Promise<SurahData> {
   try {
-    const results = hybridSearchEngine.search(query, topK);
+    // A. Ambil Metadata Surah (untuk Header)
+    const listRes = await fetch(`/api-kemenag/api-alquran/surah/local/1/114`, {
+      headers: { user, Authorization }
+    });
+    const listJson = await listRes.json();
+    const surahMeta = listJson.data.find((s: SurahListItem) => s.id === Number(surahNumber));
+    if (!surahMeta) throw new Error(`Surah ${surahNumber} tidak ditemukan`);
 
-    if (results.length === 0) {
-      console.log("[v0] No hybrid results, trying fallback search");
-      return fallbackSearch(query, topK);
-    }
+    // B. Ambil Daftar Ayat untuk Surah ini
+    const ayatRes = await fetch(`/api-kemenag/api-alquran/ayat/local/${surahNumber}`, {
+      headers: { user, Authorization }
+    });
+    if (!ayatRes.ok) throw new Error(`HTTP Error Ayat ${ayatRes.status}`);
+    const ayatJson = await ayatRes.json();
+    const rawVerses: KemenagVerseItem[] = ayatJson.data;
 
-    return results;
-  } catch (error) {
-    console.error("[v0] Hybrid search error:", error);
-    return fallbackSearch(query, topK);
-  }
-}
+    // C. Ambil Tafsir PER AYAT menggunakan Global ID
+    // ⚠️ PERINGATAN: Ini akan melakukan request sebanyak jumlah ayat (misal Al-Baqarah = 286 request)
+    // Browser membatasi koneksi paralel, jadi ini mungkin antre.
+    const tafsirPromises = rawVerses.map(verse => 
+      fetch(`/api-kemenag/api-alquran/ayat/local/tafsir/${verse.id}`, { // Gunakan global ID
+        headers: { user, Authorization }
+      })
+      .then(res => res.ok ? res.json() : null) // Handle jika ada request tafsir yg gagal
+      .catch(err => {
+        console.error(`Gagal fetch tafsir ID ${verse.id}`, err);
+        return null; 
+      })
+    );
 
-function fallbackSearch(query: string, topK = 20): SearchResult[] {
-  const normalizedQuery = query.toLowerCase().normalize("NFKC");
-  const results: SearchResult[] = [];
+    // Tunggu semua request tafsir selesai
+    const tafsirResponses = await Promise.all(tafsirPromises);
 
-  // Remove Arabic diacritics from query
-  const cleanQuery = normalizedQuery.replace(/[\u064B-\u065F]/g, "");
-
-  for (const verse of allVerses) {
-    const arab = verse.arab.normalize("NFKC").replace(/[\u064B-\u065F]/g, "");
-    const latin = verse.latin.toLowerCase();
-    const terjemahan = verse.terjemahan.toLowerCase();
-
-    let score = 0;
-
-    // Exact match in Arabic
-    if (arab.includes(cleanQuery)) {
-      score = 0.9;
-    }
-    // Partial match in Arabic (at least 50% of query)
-    else if (cleanQuery.length > 2) {
-      const partialMatch = arab.includes(
-        cleanQuery.substring(0, Math.ceil(cleanQuery.length / 2))
-      );
-      if (partialMatch) score = 0.7;
-    }
-
-    // If no Arabic match, try Latin
-    if (score === 0 && latin.includes(normalizedQuery)) {
-      score = 0.6;
-    }
-
-    // If no Latin match, try translation
-    if (score === 0 && terjemahan.includes(normalizedQuery)) {
-      score = 0.5;
-    }
-
-    // Fuzzy matching for close matches
-    if (score === 0 && cleanQuery.length > 3) {
-      const arabWords = arab.split(/\s+/);
-      for (const word of arabWords) {
-        if (word.includes(cleanQuery.substring(0, 3))) {
-          score = 0.4;
-          break;
+    // D. Mapping & Merging Data
+    // Kita buat Map agar mudah mencocokkan respon tafsir ke ayatnya (berjaga-jaga jika urutan promise acak)
+    const tafsirMap = new Map<number, KemenagTafsirItem>();
+    
+    tafsirResponses.forEach((response) => {
+      if (response && response.data) {
+        // API tafsir mengembalikan array data (biasanya isinya 1 item)
+        // Struktur: { data: [ { id: 8, teks: "...", ... } ] }
+        const item = Array.isArray(response.data) ? response.data[0] : response.data;
+        if (item) {
+            tafsirMap.set(item.id, item); // Key gunakan Global ID
         }
       }
-    }
+    });
 
-    if (score > 0) {
-      results.push({
-        ...verse,
-        bm25Score: score,
-        semanticScore: 0,
-        hybridScore: score,
-        matchType: "keyword",
-      });
-    }
+    const ayatList: Ayat[] = rawVerses.map((verse) => {
+      const tafsirData = tafsirMap.get(verse.id); // Cocokkan via Global ID
+
+      return {
+        id: verse.ayat,           // Nomor ayat dalam surah (1, 2, 3...)
+        globalId: verse.id,       // Nomor ayat global (8, 9, 10...)
+        arab: verse.teks_msi_usmani,
+        latin: verse.teks,
+        terjemahan: verse.terjemah,
+        tafsir: tafsirData?.teks || "",       // Tafsir Wajiz
+        tafsirLong: tafsirData?.tahlili || "", // Tafsir Tahlili
+      };
+    });
+
+    return {
+      number: surahMeta.id,
+      name: {
+        short: surahMeta.arabic,
+        transliteration: surahMeta.nama,
+        translation: surahMeta.arti
+      },
+      verses: ayatList,
+      numberOfVerses: surahMeta.jmlAyat,
+      revelation: {
+        arab: surahMeta.kategori_ar,
+        id: surahMeta.kategori
+      },
+    };
+
+  } catch (error) {
+    console.error("Error fetching surah:", error);
+    throw error;
   }
-
-  return results.sort((a, b) => b.hybridScore - a.hybridScore).slice(0, topK);
 }
 
-export function getSearchStats(): {
-  totalVerses: number;
-  engineInitialized: boolean;
-  bm25Weight: number;
-  semanticWeight: number;
-} {
-  return {
-    totalVerses: allVerses.length,
-    engineInitialized: hybridSearchEngine !== null,
-    bm25Weight: hybridSearchEngine?.getConfig().bm25Weight || 0.6,
-    semanticWeight: hybridSearchEngine?.getConfig().semanticWeight || 0.4,
-  };
-}
+// 3. Fetch All Surah Data (HANYA AYAT, TANPA TAFSIR)
+// ⚠️ Penting: Jangan ambil tafsir di sini karena akan memicu ribuan request (6236 ayat)
+// Fungsi ini biasanya dipakai untuk pencarian global cepat atau indeks.
+export async function fetchAllSurahData(user: string, Authorization: string): Promise<SurahData[]> {
+    const listRes = await fetch(`/api-kemenag/api-alquran/surah/local/1/114`, {
+        headers: { user, Authorization }
+    });
+    const listJson = await listRes.json();
+    const surahList: SurahListItem[] = listJson.data;
 
-export function updateHybridSearchConfig(config: {
-  bm25Weight?: number;
-  semanticWeight?: number;
-  minBM25Threshold?: number;
-  minSemanticThreshold?: number;
-}): void {
-  if (hybridSearchEngine) {
-    hybridSearchEngine.updateConfig(config);
-  }
+    const promises = surahList.map(async (meta) => {
+        const res = await fetch(`/api-kemenag/api-alquran/ayat/local/${meta.id}`, { 
+            headers: { user, Authorization } 
+        });
+        const json = await res.json();
+        const verses: KemenagVerseItem[] = json.data;
+
+        return {
+            meta,
+            verses: verses.map(v => ({
+                id: v.ayat,
+                globalId: v.id,
+                arab: v.teks_msi_usmani,
+                latin: v.teks,
+                terjemahan: v.terjemah,
+                tafsir: "",     // Kosongkan demi performa
+                tafsirLong: ""  // Kosongkan demi performa
+            }))
+        };
+    });
+
+    const results = await Promise.all(promises);
+
+    return results.map(item => ({
+        number: item.meta.id,
+        name: {
+            short: item.meta.arabic,
+            transliteration: item.meta.nama,
+            translation: item.meta.arti
+        },
+        verses: item.verses,
+        numberOfVerses: item.meta.jmlAyat,
+        revelation: {
+            arab: item.meta.kategori_ar,
+            id: item.meta.kategori
+        }
+    }));
 }

@@ -25,7 +25,7 @@ async function initDB() {
     upgrade(db) {
       // 1. Membuat object store untuk Daftar Surah (jika belum ada)
       if (!db.objectStoreNames.contains(SURAH_LIST_STORE_NAME)) {
-        db.createObjectStore(SURAH_LIST_STORE_NAME, { keyPath: 'number' });
+        db.createObjectStore(SURAH_LIST_STORE_NAME, { keyPath: 'id' });
       }
       
       // 2. Membuat object store **BARU** untuk Detail Surah
@@ -79,15 +79,15 @@ export async function getCachedSurahList(): Promise<SurahListItem[] | null> {
 
 /**
  * Menyimpan detail satu surah ke IndexedDB (store: surahDetails).
- * @param surahData Data detail surah (termasuk semua ayat).
+ * @param surahData_1 Data detail surah (termasuk semua ayat).
  */
-export async function cacheSurahDetail(surahData: SurahData[]): Promise<void> {
+export async function cacheSurahDetail(surahData_1: SurahData[]): Promise<void> {
   const conn = await initDB();
   const tx = conn.transaction(SURAH_DETAIL_STORE_NAME, 'readwrite');
   const store = tx.objectStore(SURAH_DETAIL_STORE_NAME);
   
-  await store.clear();
-  for (const surah of surahData) {
+  // await store.clear();
+  for (const surah of surahData_1) {
     await store.put(surah);
   }
   await tx.done;
