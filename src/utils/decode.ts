@@ -9,6 +9,12 @@ export function splitArabicParagraphs(text: string): string {
   
   let processed = text;
 
+  processed = processed.replace(/±/g, 'ā'); 
+  processed = processed.replace(/³/g, 'ī');
+  processed = processed.replace(/¯/g, 'ṭ');
+  processed = processed.replace(//g, `'`);
+  processed = processed.replace(/¥/g, `ḥ`);
+
   // 1. Pisahkan Referensi/Teks Arab yang ada di dalam kurung (...)
   // Contoh: (رواه الشيخان) akan dipisah ke baris baru
   const regexParens = /(\([^\)]*[\u0600-\u06FF]+[^\)]*\))/g;
@@ -30,6 +36,7 @@ export function splitArabicParagraphs(text: string): string {
 
   const regexArabLatin = /([\u0600-\u06FF]+)\s+([&“"a-zA-Z\u00C0-\u024F\.,():]+)/g;
   processed = processed.replace(regexArabLatin, '$1\n$2');
+
   
 
   return processed;
