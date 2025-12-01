@@ -21,7 +21,7 @@ export default function HomeSearchBar({
   const [isListening, setIsListening] = useState(false);
   const [detectedMode, setDetectedMode] = useState<string>("");
   const recognitionRef = useRef<any>(null);
-  const [currentLanguage, setCurrentLanguage] = useState<"ar" | "id">("ar"); // Track current language
+  // const [, setCurrentLanguage] = useState<"ar" | "id">("ar"); // Track current language
 
   // Fungsi untuk mendeteksi apakah input adalah lantunan ayat atau kata kunci
   const detectInputType = (text: string): boolean => {
@@ -33,55 +33,58 @@ export default function HomeSearchBar({
     return (hasLongPhrase && hasArabicText) || hasArabicDiacritics;
   };
 
+  // 1. Fungsi untuk memberhentikan rekaman (Safety Check)
   const stopRecognition = () => {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch (e) {
-        console.log("Recognition already stopped");
+        // Ignore error if already stopped
       }
       recognitionRef.current = null;
     }
     setIsListening(false);
-    setDetectedMode("");
+    // Kita tidak langsung clear detectedMode agar user sempat baca status terakhir
   };
 
-  const startVoiceRecognition = () => {
+ // 2. Fungsi Utama (Support Rekursif untuk Fallback Bahasa)
+  const startVoiceRecognition = (lang: "ar-SA" | "id-ID" = "ar-SA") => {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert(
-        "❌ Browser Anda tidak mendukung Speech Recognition.\nCoba gunakan Chrome/Edge."
-      );
+      alert("❌ Browser tidak mendukung. Gunakan Chrome (Android) atau Safari (iOS).");
       return;
     }
 
-    // Cleanup previous recognition
+    // Pastikan instance lama mati sebelum mulai yang baru
     stopRecognition();
-
-    setIsListening(true);
-    setDetectedMode("🎤 Mendengarkan...");
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
 
-    // Configuration
-    recognition.continuous = false;
+    // --- Konfigurasi Mobile Friendly ---
+    recognition.continuous = false; // Wajib false untuk HP agar tidak hang
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+    recognition.lang = lang;
 
-    recognition.lang = "ar-SA";
-    setCurrentLanguage("ar");
+    // Update State
+    setIsListening(true);
+    // setCurrentLanguage(lang === "ar-SA" ? "ar" : "id");
+    
+    // Feedback UI
+    if (lang === "ar-SA") {
+      setDetectedMode("🎤 Mendengarkan (Arab)... Silakan baca ayat/kata kunci.");
+    } else {
+      setDetectedMode("🇮🇩 Tidak terdengar Arab, mencoba Bahasa Indonesia...");
+    }
 
     let hasResult = false;
 
     recognition.onstart = () => {
-      console.log("✅ Speech recognition started with Arabic");
-      setDetectedMode(
-        "🎤 Sedang mendengarkan dalam bahasa Arab... Silakan berbicara!"
-      );
+      console.log(`✅ Recognition started: ${lang}`);
     };
 
     recognition.onresult = (event: any) => {
@@ -89,20 +92,20 @@ export default function HomeSearchBar({
       const transcript = event.results[0][0].transcript;
       const confidence = event.results[0][0].confidence;
 
-      console.log(`🎧 Hasil Arab: "${transcript}" (confidence: ${confidence})`);
-
+      console.log(`🎧 Hasil (${lang}): "${transcript}" (confidence: ${confidence})`);
       setSearchText(transcript);
 
-      // Auto-detect type
+      // Deteksi jenis input
       const isRecitation = detectInputType(transcript);
-
+      const labelLang = lang === "ar-SA" ? "Arab" : "Indonesia";
+      
       if (isRecitation) {
-        setDetectedMode("🎵 Terdeteksi: Lantunan Ayat (Arab)");
+        setDetectedMode(`🎵 Terdeteksi: Lantunan Ayat (${labelLang})`);
       } else {
-        setDetectedMode("🔍 Terdeteksi: Kata Kunci (Arab)");
+        setDetectedMode(`🔍 Terdeteksi: Kata Kunci (${labelLang})`);
       }
 
-      // Auto search after 1 second
+      // Auto search delay
       setTimeout(() => {
         onSearch(transcript, isRecitation);
         setDetectedMode("");
@@ -111,150 +114,75 @@ export default function HomeSearchBar({
     };
 
     recognition.onerror = (event: any) => {
-      console.error("❌ Speech recognition error:", event.error);
-
-      let errorMessage = "Terjadi kesalahan: ";
-
-      switch (event.error) {
-        case "no-speech":
-          errorMessage +=
-            "Tidak ada suara terdeteksi. Coba lagi dan berbicara lebih keras.";
-          break;
-        case "audio-capture":
-          errorMessage += "Mikrofon tidak ditemukan atau tidak bisa diakses.";
-          break;
-        case "not-allowed":
-          errorMessage +=
-            "Akses mikrofon ditolak. Izinkan akses mikrofon di pengaturan browser.";
-          break;
-        case "network":
-          errorMessage += "Koneksi internet bermasalah.";
-          break;
-        case "aborted":
-          errorMessage += "Pencarian dibatalkan.";
-          break;
-        default:
-          errorMessage += event.error;
+      console.error(`❌ Error (${lang}):`, event.error);
+      
+      // Khusus 'no-speech' di HP sering terjadi kalau user diam sebentar
+      if (event.error === 'no-speech') {
+         // Jangan alert, biarkan masuk ke onend untuk logic fallback
+         return;
       }
-
-      alert(errorMessage);
-      stopRecognition();
+      
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        alert("⚠️ Akses mikrofon ditolak. Cek pengaturan privasi browser Anda.");
+        setIsListening(false);
+        setDetectedMode("");
+      }
     };
 
     recognition.onend = () => {
-      console.log("🛑 Speech recognition ended");
+      console.log(`🛑 Recognition ended (${lang})`);
 
-      if (!hasResult && isListening && currentLanguage === "ar") {
-        console.log(
-          "🔄 Tidak ada hasil Arab, mencoba dengan bahasa Indonesia..."
-        );
-        setCurrentLanguage("id");
-
-        const fallbackRecognition = new SpeechRecognition();
-        recognitionRef.current = fallbackRecognition;
-
-        fallbackRecognition.continuous = false;
-        fallbackRecognition.interimResults = false;
-        fallbackRecognition.maxAlternatives = 1;
-        fallbackRecognition.lang = "id-ID";
-
-        fallbackRecognition.onstart = () => {
-          console.log(
-            "✅ Fallback: Speech recognition started with Indonesian"
-          );
-          setDetectedMode("🎤 Mencoba dengan bahasa Indonesia...");
-        };
-
-        fallbackRecognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          const confidence = event.results[0][0].confidence;
-
-          console.log(
-            `🎧 Hasil Indonesia: "${transcript}" (confidence: ${confidence})`
-          );
-          setSearchText(transcript);
-
-          const isRecitation = detectInputType(transcript);
-
-          if (isRecitation) {
-            setDetectedMode("🎵 Terdeteksi: Lantunan Ayat (Indonesia)");
-          } else {
-            setDetectedMode("🔍 Terdeteksi: Kata Kunci (Indonesia)");
-          }
-
-          setTimeout(() => {
-            onSearch(transcript, isRecitation);
-            setDetectedMode("");
-            setIsListening(false);
-          }, 1000);
-        };
-
-        fallbackRecognition.onerror = (event: any) => {
-          console.error("❌ Fallback recognition error:", event.error);
-          alert(
-            "❌ Pencarian suara gagal di kedua bahasa. Coba lagi atau gunakan pencarian teks."
-          );
-          stopRecognition();
-        };
-
-        fallbackRecognition.onend = () => {
-          console.log("🛑 Fallback recognition ended");
-          setIsListening(false);
-        };
-
-        try {
-          fallbackRecognition.start();
-        } catch (e) {
-          console.error("Failed to start fallback recognition:", e);
-          stopRecognition();
-        }
+      // LOGIC FALLBACK: Jika bahasa Arab selesai TAPI tidak ada hasil, coba Indonesia
+      if (!hasResult && lang === "ar-SA") {
+        console.log("🔄 Fallback ke Bahasa Indonesia...");
+        // Panggil fungsi ini lagi dengan parameter bahasa Indonesia
+        startVoiceRecognition("id-ID"); 
       } else {
+        // Jika sudah bahasa Indonesia dan tetap tidak ada hasil, atau memang sukses
+        if (!hasResult && lang === "id-ID") {
+             setDetectedMode("❌ Suara tidak tertangkap jelas.");
+             setTimeout(() => setDetectedMode(""), 2000);
+        }
         setIsListening(false);
+        recognitionRef.current = null;
       }
     };
 
-    // Start recognition
+    // Jalankan
     try {
       recognition.start();
     } catch (e) {
-      console.error("Failed to start recognition:", e);
-      alert(
-        "❌ Gagal memulai speech recognition. Pastikan tidak ada tab lain yang menggunakan mikrofon."
-      );
-      stopRecognition();
+      console.error("Failed to start:", e);
+      setIsListening(false);
     }
   };
 
+
   const handleVoiceClick = () => {
+    // 1. Cek apakah sedang mendengarkan, jika ya stop.
     if (isListening) {
       stopRecognition();
       return;
     }
 
-    if (!recognitionAvailable) {
-      alert(
-        "❌ Speech Recognition tidak tersedia.\n\nGunakan browser Chrome, Edge, atau Safari."
-      );
+    // 2. Cek ketersediaan API
+    // Penting: Jangan gunakan (window as any) berulang-ulang, definisikan di luar atau di utils jika bisa.
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("❌ Fitur suara tidak didukung di browser ini. Gunakan Chrome (Android) atau Safari (iOS).");
       return;
     }
 
-    // Check microphone permission
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then(() => {
-          startVoiceRecognition();
-        })
-        .catch((err) => {
-          console.error("Microphone access denied:", err);
-          alert(
-            "❌ Akses mikrofon ditolak.\n\nBuka pengaturan browser dan izinkan akses mikrofon untuk website ini."
-          );
-        });
-    } else {
-      startVoiceRecognition();
-    }
+    // 3. LANGSUNG jalankan startVoiceRecognition()
+    // Jangan bungkus dengan getUserMedia atau Promise apapun.
+    // Browser HP butuh eksekusi langsung saat tombol ditekan.
+    startVoiceRecognition();
   };
+  
+  
 
   return (
     <div className="mb-6 space-y-3">
