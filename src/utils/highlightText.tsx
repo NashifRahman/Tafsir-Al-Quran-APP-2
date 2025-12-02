@@ -42,10 +42,10 @@ export function highlightText(text: string, searchTerm: string): HighlightMatch[
     const normalizedText = normalizeArabicForHighlight(text)
     const regex = new RegExp(`(${cleanTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "g")
 
-    const matchIndex = 0
+    //const matchIndex = 0
     for (const match of normalizedText.matchAll(regex)) {
       const matchStart = match.index!
-      const matchEnd = matchStart + match[0].length
+      // const matchEnd = matchStart + match[0].length
 
       // Find corresponding position in original text
       let originalStart = 0
