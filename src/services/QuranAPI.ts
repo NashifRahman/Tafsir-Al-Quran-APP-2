@@ -41,6 +41,7 @@ export interface Ayat {
   id: number;
   globalId: number; // Tambahan: Menyimpan ID global untuk referensi
   arab: string;
+  arabClean:string; // Versi gundul (tanpa harakat)
   latin: string;
   terjemahan: string;
   tafsir: string;
@@ -128,6 +129,7 @@ export async function fetchSurah(surahNumber: number, user: string, Authorizatio
         id: verse.ayat,           // Nomor ayat dalam surah (1, 2, 3...)
         globalId: verse.id,       // Nomor ayat global (8, 9, 10...)
         arab: verse.teks_msi_usmani,
+        arabClean: normalizeArabic(verse.teks_msi_usmani), // Versi gundul (tanpa harakat)
         latin: verse.teks,
         terjemahan: verse.terjemah,
         tafsir: tafsirData?.teks || "",       // Tafsir Wajiz
@@ -160,12 +162,14 @@ export async function fetchSurah(surahNumber: number, user: string, Authorizatio
 // ⚠️ Penting: Jangan ambil tafsir di sini karena akan memicu ribuan request (6236 ayat)
 // Fungsi ini biasanya dipakai untuk pencarian global cepat atau indeks.
 export async function fetchAllSurahData(user: string, Authorization: string): Promise<SurahData[]> {
+    // 1. Ambil List Surah
     const listRes = await fetch(`/api-kemenag/api-alquran/surah/local/1/114`, {
         headers: { user, Authorization }
     });
     const listJson = await listRes.json();
     const surahList: SurahListItem[] = listJson.data;
 
+    // 2. Ambil Detail Ayat
     const promises = surahList.map(async (meta) => {
         const res = await fetch(`/api-kemenag/api-alquran/ayat/local/${meta.id}`, { 
             headers: { user, Authorization } 
@@ -178,11 +182,17 @@ export async function fetchAllSurahData(user: string, Authorization: string): Pr
             verses: verses.map(v => ({
                 id: v.ayat,
                 globalId: v.id,
-                arab: v.teks_msi_usmani,
+                arab: v.teks_msi_usmani, // Teks Asli (untuk tampilan)
+                
+                // --- BAGIAN BARU DISINI ---
+                // Kita simpan versi gundulnya langsung di objek ini
+                arabClean: normalizeArabic(v.teks_msi_usmani), 
+                // --------------------------
+
                 latin: v.teks,
                 terjemahan: v.terjemah,
-                tafsir: "",     // Kosongkan demi performa
-                tafsirLong: ""  // Kosongkan demi performa
+                tafsir: "",    
+                tafsirLong: "" 
             }))
         };
     });
@@ -204,3 +214,31 @@ export async function fetchAllSurahData(user: string, Authorization: string): Pr
         }
     }));
 }
+
+// Helper: Menghapus harakat & menormalkan karakter
+const normalizeArabic = (text: string): string => {
+  return text
+    // --- STEP 0: Satukan karakter terpisah (PENTING untuk copy-paste) ---
+    // Mengubah "Ya + Hamzah" (2 huruf) menjadi "Yeh With Hamza" (1 huruf)
+    .normalize("NFKC") 
+
+    // --- STEP 1: Hapus Harakat & Tanda Baca ---
+    // Range ini mencakup harakat, tatweel, tanda waqaf, dan small high letters
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED\u0640]/g, '')
+
+    // --- STEP 2: Normalisasi Alif (Rumah Hamzah Alif) ---
+    // أ (Atas), إ (Bawah), آ (Maddah), ٱ (Waslah - PENTING Al-Hujurat:11)
+    .replace(/[أإآٱ]/g, 'ا')
+
+    // --- STEP 3: Normalisasi "Rumah Hamzah" Lainnya (SOLUSI BI'SA) ---
+    // Mengubah 'ئ' (pada bi'sa) dan 'ى' (pada musa) menjadi 'ي' (Ya standar)
+    // Ini membuat "Bi'sa" (بئس) menjadi "Bisa" (بيس) di sistem pencarian.
+    // .replace(/[ىئ]/g, 'ي')
+
+    // --- STEP 4: Normalisasi Waw Hamzah ---
+    // Mengubah 'ؤ' (pada Mukmin) menjadi 'و' (Waw standar)
+    .replace(/[ؤ]/g, 'و')
+
+    // --- STEP 5: Normalisasi Kaf ---
+    .replace(/ڪ/g, 'ك');
+};

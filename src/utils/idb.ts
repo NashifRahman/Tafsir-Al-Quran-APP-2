@@ -12,6 +12,7 @@ const SURAH_LIST_STORE_NAME = 'surahList';
 // Nama store **BARU** untuk detail ayat per surah
 const SURAH_DETAIL_STORE_NAME = 'surahDetails';
 
+
 let db: IDBPDatabase;
 
 /**

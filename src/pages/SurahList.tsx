@@ -7,7 +7,6 @@ import {
   fetchAllSurahData,
   type SurahListItem,
   type SurahData,
-  // type SurahData_1,
 } from "@/services/QuranAPI";
 import Hero from "@/components/hero";
 import {
@@ -15,7 +14,6 @@ import {
   cacheSurahList,
   cacheSurahDetail,
   getAllCachedSurahDetails,
-  // getCachedSurahByNumber,
 } from "@/utils/idb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {  BookOpen, Sparkles } from "lucide-react";
@@ -55,7 +53,6 @@ export default function SurahList() {
       const Authorization = import.meta.env.VITE_API_TOKEN || "";
       let data: SurahListItem[] | null = null;
       let detail: SurahData[] | null = null;
-      // let detail_1: SurahData_1[] | null = null;
 
       try {
         const cachedData = await getCachedSurahList();

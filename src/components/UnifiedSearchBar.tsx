@@ -21,16 +21,16 @@ export default function UnifiedSearchBar({
   const [isListening, setIsListening] = useState(false);
   const [detectedMode, setDetectedMode] = useState<string>("");
   const recognitionRef = useRef<any>(null);
-  // const [currentLanguage, setCurrentLanguage] = useState<"ar" | "id">("ar"); // Track current language
 
-  // Fungsi untuk mendeteksi apakah input adalah lantunan ayat atau kata kunci
+  // Fungsi deteksi input (tetap dipertahankan untuk membedakan mode pencarian)
   const detectInputType = (text: string): boolean => {
     const wordCount = text.trim().split(/\s+/).length;
-    const hasArabicDiacritics = /[\u064B-\u065F]/.test(text);
-    const hasLongPhrase = wordCount > 5;
+    // Cek harakat umum
+    const hasArabicDiacritics = /[\u064B-\u065F]/.test(text); 
+    // Cek range karakter Arab
     const hasArabicText = /[\u0600-\u06FF]/.test(text);
 
-    return (hasLongPhrase && hasArabicText) || hasArabicDiacritics;
+    return (wordCount > 5 && hasArabicText) || hasArabicDiacritics;
   };
 
   const stopRecognition = () => {
@@ -38,16 +38,14 @@ export default function UnifiedSearchBar({
       try {
         recognitionRef.current.stop();
       } catch (e) {
-        // Ignore error if already stopped
+        // Ignore logic
       }
       recognitionRef.current = null;
     }
     setIsListening(false);
-    // Kita tidak langsung clear detectedMode agar user sempat baca status terakhir
   };
 
-  // 2. Fungsi Utama (Support Rekursif untuk Fallback Bahasa)
-  const startVoiceRecognition = (lang: "ar-SA" | "id-ID" = "ar-SA") => {
+  const startVoiceRecognition = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
@@ -57,54 +55,42 @@ export default function UnifiedSearchBar({
       return;
     }
 
-    // Pastikan instance lama mati sebelum mulai yang baru
     stopRecognition();
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
 
-    // --- Konfigurasi Mobile Friendly ---
-    recognition.continuous = false; // Wajib false untuk HP agar tidak hang
+    // --- Konfigurasi Khusus Arab ---
+    recognition.continuous = false;
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-    recognition.lang = lang;
-
-    // Update State
-    setIsListening(true);
-    // setCurrentLanguage(lang === "ar-SA" ? "ar" : "id");
     
-    // Feedback UI
-    if (lang === "ar-SA") {
-      setDetectedMode("🎤 Mendengarkan (Arab)... Silakan baca ayat/kata kunci.");
-    } else {
-      setDetectedMode("🇮🇩 Tidak terdengar Arab, mencoba Bahasa Indonesia...");
-    }
+    // KUNCI KE BAHASA ARAB SAJA
+    recognition.lang = "ar-SA"; 
 
-    let hasResult = false;
+    setIsListening(true);
+    setDetectedMode("🎤 Mendengarkan (Arab)... Silakan baca ayat.");
 
     recognition.onstart = () => {
-      console.log(`✅ Recognition started: ${lang}`);
+      console.log("✅ Voice recognition started (Arabic Only)");
     };
 
     recognition.onresult = (event: any) => {
-      hasResult = true;
       const transcript = event.results[0][0].transcript;
       const confidence = event.results[0][0].confidence;
 
-      console.log(`🎧 Hasil (${lang}): "${transcript}" (confidence: ${confidence})`);
+      console.log(`🎧 Hasil Arab: "${transcript}" (confidence: ${confidence})`);
       setSearchText(transcript);
 
-      // Deteksi jenis input
       const isRecitation = detectInputType(transcript);
-      const labelLang = lang === "ar-SA" ? "Arab" : "Indonesia";
-      
+
       if (isRecitation) {
-        setDetectedMode(`🎵 Terdeteksi: Lantunan Ayat (${labelLang})`);
+        setDetectedMode("🎵 Terdeteksi: Lantunan Ayat");
       } else {
-        setDetectedMode(`🔍 Terdeteksi: Kata Kunci (${labelLang})`);
+        setDetectedMode("🔍 Terdeteksi: Kata Kunci Arab");
       }
 
-      // Auto search delay
+      // Auto search setelah 1 detik
       setTimeout(() => {
         onSearch(transcript, isRecitation);
         setDetectedMode("");
@@ -113,41 +99,29 @@ export default function UnifiedSearchBar({
     };
 
     recognition.onerror = (event: any) => {
-      console.error(`❌ Error (${lang}):`, event.error);
+      console.error("❌ Error:", event.error);
       
-      // Khusus 'no-speech' di HP sering terjadi kalau user diam sebentar
       if (event.error === 'no-speech') {
-         // Jangan alert, biarkan masuk ke onend untuk logic fallback
+         // User diam, tutup saja tanpa alert
+         stopRecognition();
+         setDetectedMode("");
          return;
       }
       
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        alert("⚠️ Akses mikrofon ditolak. Cek pengaturan privasi browser Anda.");
-        setIsListening(false);
+        alert("⚠️ Akses mikrofon ditolak.");
+        stopRecognition();
         setDetectedMode("");
       }
     };
 
     recognition.onend = () => {
-      console.log(`🛑 Recognition ended (${lang})`);
-
-      // LOGIC FALLBACK: Jika bahasa Arab selesai TAPI tidak ada hasil, coba Indonesia
-      if (!hasResult && lang === "ar-SA") {
-        console.log("🔄 Fallback ke Bahasa Indonesia...");
-        // Panggil fungsi ini lagi dengan parameter bahasa Indonesia
-        startVoiceRecognition("id-ID"); 
-      } else {
-        // Jika sudah bahasa Indonesia dan tetap tidak ada hasil, atau memang sukses
-        if (!hasResult && lang === "id-ID") {
-             setDetectedMode("❌ Suara tidak tertangkap jelas.");
-             setTimeout(() => setDetectedMode(""), 2000);
-        }
-        setIsListening(false);
-        recognitionRef.current = null;
-      }
+      console.log("🛑 Voice recognition ended");
+      // Tidak ada logika fallback lagi di sini
+      setIsListening(false);
+      recognitionRef.current = null;
     };
 
-    // Jalankan
     try {
       recognition.start();
     } catch (e) {
@@ -157,32 +131,23 @@ export default function UnifiedSearchBar({
   };
 
   const handleVoiceClick = () => {
-    // 1. Cek apakah sedang mendengarkan, jika ya stop.
     if (isListening) {
       stopRecognition();
       return;
     }
 
-    // 2. Cek ketersediaan API
-    // Penting: Jangan gunakan (window as any) berulang-ulang, definisikan di luar atau di utils jika bisa.
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("❌ Fitur suara tidak didukung di browser ini. Gunakan Chrome (Android) atau Safari (iOS).");
+    if (!recognitionAvailable) {
+      alert("❌ Browser ini tidak mendukung fitur suara.");
       return;
     }
 
-    // 3. LANGSUNG jalankan startVoiceRecognition()
-    // Jangan bungkus dengan getUserMedia atau Promise apapun.
-    // Browser HP butuh eksekusi langsung saat tombol ditekan.
+    // Langsung mulai mode Arab
     startVoiceRecognition();
   };
 
   return (
     <div className="mb-6 space-y-3">
-      {/* Main Search Bar */}
+      {/* Form Pencarian */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -197,7 +162,7 @@ export default function UnifiedSearchBar({
       >
         <Input
           type="text"
-          placeholder="Cari ayat dengan teks, suara, atau nomor (misal: 7, 2:255, atau 2 255)..."
+          placeholder="Cari ayat (teks/suara) atau nomor (misal: 2:255)..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           className="flex-1 border-black"
@@ -209,11 +174,7 @@ export default function UnifiedSearchBar({
           onClick={handleVoiceClick}
           className="px-3"
           disabled={!recognitionAvailable}
-          title={
-            recognitionAvailable
-              ? "Klik untuk mulai berbicara dalam bahasa Arab"
-              : "Browser tidak mendukung"
-          }
+          title={recognitionAvailable ? "Cari dengan suara (Arab)" : "Tidak didukung"}
         >
           {isListening ? (
             <MicOff className="h-4 w-4" />
@@ -238,20 +199,7 @@ export default function UnifiedSearchBar({
         </Button>
       </form>
 
-      {/* Help Text */}
-      {!recognitionAvailable && (
-        <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
-          <p className="font-medium">⚠️ Pencarian Suara Tidak Tersedia</p>
-          <p className="mt-1 text-xs">
-            Gunakan browser Chrome, Edge, atau Safari untuk mengaktifkan fitur
-            ini.
-          </p>
-        </div>
-      )}
-
-      {recognitionAvailable && !isListening && !detectedMode }
-
-      {/* Status Messages */}
+      {/* Indikator Visual */}
       {isListening && (
         <div className="text-center space-y-2 animate-in fade-in slide-in-from-top-2 bg-primary/10 p-4 rounded-lg border-2 border-primary">
           <div className="flex items-center justify-center gap-2">
@@ -259,19 +207,20 @@ export default function UnifiedSearchBar({
             <p className="text-sm text-primary font-medium">{detectedMode}</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            Ucapkan dalam bahasa Arab atau bacakan ayat Al-Qur'an
+            Pastikan pelafalan jelas (Makharijul Huruf)
           </p>
           <Button
             variant="outline"
             size="sm"
             onClick={stopRecognition}
-            className="mt-2 bg-transparent"
+            className="mt-2 bg-transparent border-primary/20 hover:bg-primary/10"
           >
             Batal
           </Button>
         </div>
       )}
 
+      {/* Hasil Deteksi Singkat */}
       {detectedMode && !isListening && (
         <div className="text-center animate-in fade-in bg-green-500/10 p-3 rounded-md border border-green-500/20">
           <p className="text-sm text-green-600 dark:text-green-400 font-medium">

@@ -70,7 +70,9 @@ export default function SearchResultsModal({
                 {/* Arabic Text */}
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Teks Arab</p>
-                  <div className="bg-accent/30 p-4 rounded-lg text-right text-xl leading-relaxed font-serif">
+                  <div 
+                  dir="rtl"
+                  className="bg-accent/30 p-4 rounded-lg text-right text-xl leading-relaxed font-serif">
                     {renderHighlightedText(highlightText(result.ayat.arab, searchTerm))}
                   </div>
                 </div>
