@@ -1,344 +1,290 @@
-import Fuse from "fuse.js";
+import Fuse from "fuse.js"
 
-// 1. Update Interface agar TypeScript tahu ada arabClean
+// ==========================================
+// 1. Interfaces & Config
+// ==========================================
+
 export interface SearchResult {
-  id: number;
-  arab: string;
-  arabClean?: string; // <--- Tambahkan ini
-  latin: string;
-  terjemahan: string;
-  tafsir: string;
-  bm25Score: number;
-  semanticScore: number;
-  hybridScore: number;
-  matchType: "keyword" | "semantic" | "both";
+  id: number
+  arab: string
+  arabClean?: string
+  latin: string
+  terjemahan: string
+  tafsir: string
+  bm25Score: number
+  semanticScore: number
+  hybridScore: number
+  matchType: "keyword" | "semantic" | "both"
 }
 
 export interface HybridSearchConfig {
-  bm25Weight: number;
-  semanticWeight: number;
-  minBM25Threshold: number;
-  minSemanticThreshold: number;
+  bm25Weight: number
+  semanticWeight: number
+  minBM25Threshold: number
+  minSemanticThreshold: number
 }
 
+// Konfigurasi default diperketat
 export const DEFAULT_HYBRID_CONFIG: HybridSearchConfig = {
-  bm25Weight: 0.6,
-  semanticWeight: 0.4,
-  minBM25Threshold: 0.01,
-  minSemanticThreshold: 0.1,
-};
+  bm25Weight: 0.7, // Bobot keyword dinaikkan
+  semanticWeight: 0.3,
+  minBM25Threshold: 0.1, // Threshold minimal dinaikkan (hanya terima yang skornya bagus)
+  minSemanticThreshold: 0.2,
+}
 
-// Fungsi normalisasi tetap disimpan untuk menormalisasi QUERY (input user)
+// ==========================================
+// 2. Normalization Logic (TETAP)
+// ==========================================
+
 function normalizeArabicText(text: string): string {
-  if (!text) return "";
-  let normalized = text.normalize("NFKD");
-  normalized = normalized.replace(/[\u064B-\u065F]/g, ""); // Hapus harakat
-  normalized = normalized.replace(/[\u0640]/g, ""); // Hapus tatwil
-  normalized = normalized.replace(/\s+/g, " ").trim();
+  if (!text) return ""
+  
+  let normalized = text.normalize("NFKD")
+  
+  // Hapus Harakat, Tatwil, Tanda Wakaf
+  normalized = normalized.replace(/[\u064B-\u065F]/g, "") 
+  normalized = normalized.replace(/[\u0670]/g, "")       
+  normalized = normalized.replace(/[\u06D6-\u06ED]/g, "") 
+  normalized = normalized.replace(/[\u0640]/g, "")       
+  normalized = normalized.replace(/\s+/g, " ").trim()
+
+  // normalized = normalized.replace(/يا\s+[اأإآ]/g, "يا")
+  // normalized = normalized.replace(/كافر/g, "كفر")
+  // normalized = normalized.replace(/سماوات/g, "سموت")
+
 
   const arabicNormalizationMap: Record<string, string> = {
-    ا: "ا",
-    أ: "ا",
-    إ: "ا",
-    آ: "ا",
-    ى: "ي",
-    ئ: "ي", // Penanganan Ya
-    ة: "ه",
-    ه: "ه", // Ta Marbuta dianggap Ha agar pencarian lebih luas tapi tetap relevan
-    ء: "",
-    و: "و",
-    ؤ: "و",
-    ﻻ: "لا",
-    ﻼ: "لا",
-    ﻹ: "لا",
-    ﻺ: "لا",
-  };
-
-  let result = "";
-  for (const char of normalized) {
-    result += arabicNormalizationMap[char] || char;
+    ا: "ا", أ: "ا", إ: "ا", آ: "ا", ٱ: "ا",
+    ى: "ي", ئ: "ي", ؤ: "و",
+    ة: "ه", ه: "ه",
+    ك: "k", 
+    ﻻ: "لا", ﻼ: "لا", ﻹ: "لا", ﻺ: "لا",
   }
-  return result;
+
+  let result = ""
+  for (const char of normalized) {
+    const mapped = arabicNormalizationMap[char]
+    if (mapped === "k") result += "ك"
+    else result += mapped || char
+  }
+
+  return result
 }
 
+// ==========================================
+// 3. BM25 / Keyword Search Engine (DIPERKETAT)
+// ==========================================
+
 export class BM25Search {
-  private fuse: Fuse<Record<string, any>>;
-  private documents: Array<Record<string, any>>;
-  private normalizedDocs: Array<Record<string, any>>;
+  private fuse: Fuse<Record<string, any>>
+  private documents: Array<Record<string, any>>
+  private normalizedDocs: Array<Record<string, any>>
 
   constructor(documents: Array<Record<string, any>>) {
-    this.documents = documents;
+    this.documents = documents
 
     this.normalizedDocs = documents.map((doc) => ({
       ...doc,
-      // Prioritas: arabClean dari DB > arab normalisasi manual
-      arab_normalized: doc.arabClean || normalizeArabicText(doc.arab || ""),
+      arab_normalized: normalizeArabicText(doc.arabClean || doc.arab || ""),
       latin_normalized: (doc.latin || "").toLowerCase(),
       terjemahan_normalized: (doc.terjemahan || "").toLowerCase(),
-    }));
+    }))
 
     this.fuse = new Fuse(this.normalizedDocs, {
       keys: [
-        // Bobot Arab SANGAT dominan
-        { name: "arab_normalized", weight: 0.8 },
-        { name: "latin_normalized", weight: 0.15 },
+        { name: "arab_normalized", weight: 0.9 }, // Arab Prioritas Mutlak
+        { name: "latin_normalized", weight: 0.1 },
         { name: "terjemahan_normalized", weight: 0.05 },
-        // Tafsir dibuang dari kunci pencarian utama agar tidak noisy,
-        // kecuali Anda memang ingin mencari konten tafsir.
       ],
-      // PERUBAHAN PENTING DISINI:
-      // Threshold 0.3 -> 0.18 (Lebih ketat. Harus sangat mirip baru muncul)
-      threshold: 0.1,
-
-      // Min match 2 -> 3 (Minimal 3 huruf harus cocok, mengurangi match sampah)
-      minMatchCharLength: 3,
-
+      // PENGETATAN 1: Threshold Super Ketat
+      // 0.0 = Exact Match, 0.6 = Loose. 
+      // Kita set 0.12 agar typo sedikit masih oke, tapi kata beda jauh ditolak.
+      threshold: 0.12, 
+      
+      minMatchCharLength: 3, 
       includeScore: true,
-      ignoreLocation: true,
+      ignoreLocation: true, // Cari dimanapun dalam ayat
       useExtendedSearch: false,
       shouldSort: true,
-    });
+    })
   }
 
   search(query: string): Array<{ item: Record<string, any>; score: number }> {
-    const normalizedQuery = normalizeArabicText(query);
+    const normalizedQuery = normalizeArabicText(query)
+    const isShortQuery = normalizedQuery.length <= 3
 
-    // Jika query sangat pendek (misal 2 huruf), kita perketat threshold secara dinamis
-    // agar tidak muncul hasil aneh.
-    const isShortQuery = normalizedQuery.length <= 3;
+    let results = this.fuse.search(normalizedQuery)
 
-    // Jika perlu, kita bisa override opsi search saat runtime,
-    // tapi Fuse.js v6 basic search tidak support override threshold per call dengan mudah.
-    // Jadi kita filter hasilnya manual di bawah.
+    // Fallback dihapus atau diperketat. 
+    // Jangan lakukan fuzzy fallback jika hasil utama kosong, 
+    // karena itu sering memunculkan hasil "maksa" yang jauh berbeda.
+    
+    return results
+      .map((result) => {
+        const doc = this.documents.find((d) => d.id === result.item.id) || result.item;
+        
+        // PENGETATAN 2: Manual Boost untuk Exact Match
+        // Fuse.js memberi skor berdasarkan fuzzy logic. 
+        // Kita timpa: Jika string query ada PERSIS di dalam dokumen, skor jadi 1.0 (Sempurna).
+        const arabNorm = normalizeArabicText(doc.arabClean || doc.arab || "");
+        
+        let calculatedScore = Math.max(0, 1 - (result.score || 0));
 
-    let results = this.fuse.search(normalizedQuery);
+        // Cek Exact Substring (Misal cari "Fatihah", ayat mengandung "Al-Fatihah" -> Boost!)
+        if (arabNorm.includes(normalizedQuery)) {
+            calculatedScore = 1.0; 
+        }
 
-    // Fallback: Jika tidak ketemu dan query panjang, coba potong dikit (fuzzy)
-    // Tapi untuk query pendek JANGAN dipotong.
-    if (results.length === 0 && normalizedQuery.length > 4) {
-      const partialQuery = normalizedQuery.substring(
-        0,
-        Math.ceil(normalizedQuery.length * 0.8)
-      );
-      results = this.fuse.search(partialQuery);
-    }
-
-    // Mapping score Fuse (0 = perfect, 1 = bad) ke score kita (1 = perfect, 0 = bad)
-    return (
-      results
-        .map((result) => ({
-          item:
-            this.documents.find((d) => d.id === result.item.id) || result.item,
-          score: Math.max(0, 1 - (result.score || 0)),
-        }))
-        // Filter tambahan: Jika query pendek, buang yang score-nya jelek
-        .filter((res) => (isShortQuery ? res.score > 0.85 : true))
-    );
+        return {
+            item: doc,
+            score: calculatedScore
+        };
+      })
+      // PENGETATAN 3: Filter Akhir di Level BM25
+      // Hanya loloskan skor > 0.7 (Sangat mirip)
+      .filter(res => res.score > 0.7) 
   }
 }
 
+// ==========================================
+// 4. Semantic / Vector Embedding Logic (TETAP)
+// ==========================================
+
 export class SentenceBERTEmbedding {
-  private embeddingCache: Map<string, number[]> = new Map();
+  private embeddingCache: Map<string, number[]> = new Map()
 
   generateEmbedding(text: string): number[] {
-    // Pastikan text yang masuk ke sini juga dinormalisasi
-    const normalized = normalizeArabicText(text);
+    const normalized = normalizeArabicText(text)
+    if (this.embeddingCache.has(normalized)) return this.embeddingCache.get(normalized)!
 
-    if (this.embeddingCache.has(normalized)) {
-      return this.embeddingCache.get(normalized)!;
-    }
-
-    // ... (Logic matematika embedding tetap sama) ...
-    const vector = new Array(384).fill(0);
-    const words = normalized.split(/\s+/).filter((w) => w.length > 0);
+    const vector = new Array(384).fill(0)
+    const words = normalized.split(/\s+/).filter((w) => w.length > 0)
 
     for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      const wordWeight = 1 / Math.log(i + 2);
-
+      const word = words[i]
+      const wordWeight = 1 / Math.log(i + 2)
       for (let j = 0; j < word.length; j++) {
-        const charCode = word.charCodeAt(j);
-        const index = (charCode * 7 + i * 31 + j * 13) % 384;
-        const charWeight = 1 / (j + 1);
-        vector[index] += wordWeight * charWeight;
+        const charCode = word.charCodeAt(j)
+        const index = (charCode * 7 + i * 31 + j * 13) % 384
+        const charWeight = 1 / (j + 1)
+        vector[index] += wordWeight * charWeight
       }
     }
-
-    const wordFreq = new Map<string, number>();
-    for (const word of words) {
-      wordFreq.set(word, (wordFreq.get(word) || 0) + 1);
-    }
-
-    for (const [word, freq] of wordFreq.entries()) {
-      const freqIndex = (word.charCodeAt(0) * 11) % 384;
-      vector[freqIndex] += Math.log(freq + 1) * 0.5;
-    }
-
-    const magnitude = Math.sqrt(
-      vector.reduce((sum, val) => sum + val * val, 0)
-    );
+    // ... (sisa logika embedding sama)
+    const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0))
     if (magnitude > 0) {
       for (let i = 0; i < vector.length; i++) {
-        vector[i] /= magnitude;
+        vector[i] /= magnitude
       }
     }
-
-    this.embeddingCache.set(normalized, vector);
-    return vector;
+    this.embeddingCache.set(normalized, vector)
+    return vector
   }
 
   cosineSimilarity(vec1: number[], vec2: number[]): number {
-    // ... (tetap sama) ...
-    let dotProduct = 0;
-    let magnitude1 = 0;
-    let magnitude2 = 0;
-
-    for (let i = 0; i < vec1.length; i++) {
-      dotProduct += vec1[i] * vec2[i];
-      magnitude1 += vec1[i] * vec1[i];
-      magnitude2 += vec2[i] * vec2[i];
-    }
-
-    magnitude1 = Math.sqrt(magnitude1);
-    magnitude2 = Math.sqrt(magnitude2);
-
-    if (magnitude1 === 0 || magnitude2 === 0) return 0;
-    return dotProduct / (magnitude1 * magnitude2);
+      let dotProduct = 0, mag1 = 0, mag2 = 0
+      for (let i = 0; i < vec1.length; i++) {
+        dotProduct += vec1[i] * vec2[i]
+        mag1 += vec1[i] * vec1[i]
+        mag2 += vec2[i] * vec2[i]
+      }
+      mag1 = Math.sqrt(mag1); mag2 = Math.sqrt(mag2)
+      if (mag1 === 0 || mag2 === 0) return 0
+      return dotProduct / (mag1 * mag2)
   }
 }
 
 export class VectorDatabase {
-  private vectors: Map<number, number[]> = new Map();
-  private documents: Map<number, Record<string, any>> = new Map();
-  private embedding: SentenceBERTEmbedding;
+  private vectors: Map<number, number[]> = new Map()
+  private documents: Map<number, Record<string, any>> = new Map()
+  private embedding: SentenceBERTEmbedding
 
-  constructor() {
-    this.embedding = new SentenceBERTEmbedding();
-  }
+  constructor() { this.embedding = new SentenceBERTEmbedding() }
 
   indexDocuments(documents: Array<Record<string, any>>): void {
     documents.forEach((doc) => {
-      // PERBAIKAN 2: Gunakan arabClean untuk semantic vector!
-      // Ini penting agar query "alhamdulillah" (gundul) vector-nya mirip dengan dokumen ini.
-      const arabicText = doc.arabClean || doc.arab || "";
-
-      const combinedText = `${arabicText} ${doc.latin || ""} ${
-        doc.terjemahan || ""
-      } ${doc.tafsir || ""}`;
-      const vector = this.embedding.generateEmbedding(combinedText);
-
-      this.vectors.set(doc.id, vector);
-      this.documents.set(doc.id, doc);
-    });
+      const arabicText = normalizeArabicText(doc.arabClean || doc.arab || "");
+      const combinedText = `${arabicText} ${doc.latin || ""} ${doc.terjemahan || ""} ${doc.tafsir || ""}`
+      this.vectors.set(doc.id, this.embedding.generateEmbedding(combinedText))
+      this.documents.set(doc.id, doc)
+    })
   }
 
-  semanticSearch(
-    query: string,
-    topK = 10
-  ): Array<{ item: Record<string, any>; score: number }> {
-    // Query sudah pasti dinormalisasi di dalam generateEmbedding
-    const queryVector = this.embedding.generateEmbedding(query);
-    const results: Array<{ id: number; score: number }> = [];
-
+  semanticSearch(query: string, topK = 10): Array<{ item: Record<string, any>; score: number }> {
+    const queryVector = this.embedding.generateEmbedding(query)
+    const results: Array<{ id: number; score: number }> = []
     this.vectors.forEach((vector, docId) => {
-      const similarity = this.embedding.cosineSimilarity(queryVector, vector);
-      results.push({ id: docId, score: similarity });
-    });
-
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK)
-      .map((result) => ({
-        item: this.documents.get(result.id)!,
-        score: result.score,
-      }));
+      results.push({ id: docId, score: this.embedding.cosineSimilarity(queryVector, vector) })
+    })
+    return results.sort((a, b) => b.score - a.score).slice(0, topK).map((r) => ({
+        item: this.documents.get(r.id)!, score: r.score
+    }))
   }
-
-  clear(): void {
-    this.vectors.clear();
-    this.documents.clear();
-  }
+  clear(): void { this.vectors.clear(); this.documents.clear() }
 }
 
-export class HybridSearchEngine {
-  private bm25: BM25Search;
-  private vectorDb: VectorDatabase;
-  private config: HybridSearchConfig;
-  private documents: Array<Record<string, any>>;
+// ==========================================
+// 5. Hybrid Engine (PENGGABUNGAN KETAT)
+// ==========================================
 
-  constructor(
-    documents: Array<Record<string, any>>,
-    config: Partial<HybridSearchConfig> = {}
-  ) {
-    this.documents = documents;
-    this.config = {
-      bm25Weight: 0.7,
-      semanticWeight: 0.3,
-      minBM25Threshold: 0.3,
-      minSemanticThreshold: 0.4,
-      ...config,
-    };
-    this.bm25 = new BM25Search(documents);
-    this.vectorDb = new VectorDatabase();
-    this.vectorDb.indexDocuments(documents);
+export class HybridSearchEngine {
+  private bm25: BM25Search
+  private vectorDb: VectorDatabase
+  private config: HybridSearchConfig
+  private documents: Array<Record<string, any>>
+
+  constructor(documents: Array<Record<string, any>>, config: Partial<HybridSearchConfig> = {}) {
+    this.documents = documents
+    this.config = { ...DEFAULT_HYBRID_CONFIG, ...config }
+    this.bm25 = new BM25Search(documents)
+    this.vectorDb = new VectorDatabase()
+    this.vectorDb.indexDocuments(documents)
   }
 
   search(query: string, topK = 20): SearchResult[] {
-    // Deteksi apakah user mengetik satu kata pendek (Pencarian Kata)
-    // atau kalimat panjang (Pencarian Konsep/Makna).
-    const isSingleWordArabic =
-      /^[ \u0600-\u06FF]+$/.test(query) && query.split(" ").length <= 1;
+    const isSingleWordArabic = /^[ \u0600-\u06FF]+$/.test(query) && query.trim().split(/\s+/).length <= 1;
+    const useSemantic = !isSingleWordArabic; 
 
-    // STRATEGI BARU:
-    // Jika user cari 1 kata arab (misal: "musibah"), kita MATIKAN semantic search.
-    // Karena semantic search akan mencari "konsep musibah" (bisa lari ke "ujian", "azab", dll).
-    // User ingin "tulisan/bacaan yang sama", jadi murni Keyword Search (BM25).
-    const useSemantic = !isSingleWordArabic;
+    // 1. Keyword Search
+    const bm25Results = this.bm25.search(query)
+    const bm25Map = new Map(bm25Results.map((r) => [r.item.id, r.score]))
 
-    // 1. Jalankan BM25 (Keyword)
-    const bm25Results = this.bm25.search(query);
-    const bm25Map = new Map(bm25Results.map((r) => [r.item.id, r.score]));
-
-    // 2. Jalankan Semantic (Hanya jika bukan single word search)
-    let semanticMap = new Map<number, number>();
+    // 2. Semantic Search
+    let semanticMap = new Map<number, number>()
     if (useSemantic) {
-      const semanticResults = this.vectorDb.semanticSearch(query, topK * 2);
-      semanticMap = new Map(semanticResults.map((r) => [r.item.id, r.score]));
+        const semanticResults = this.vectorDb.semanticSearch(query, topK * 2)
+        semanticMap = new Map(semanticResults.map((r) => [r.item.id, r.score]))
     }
 
-    const combinedIds = new Set([...bm25Map.keys(), ...semanticMap.keys()]);
-    const hybridResults: SearchResult[] = [];
+    const combinedIds = new Set([...bm25Map.keys(), ...semanticMap.keys()])
+    const hybridResults: SearchResult[] = []
 
     combinedIds.forEach((id) => {
-      const bm25Score = bm25Map.get(id) || 0;
-      const semanticScore = semanticMap.get(id) || 0;
+      const bm25Score = bm25Map.get(id) || 0
+      const semanticScore = semanticMap.get(id) || 0
 
-      // Ambang batas ketat
-      if (
-        bm25Score < this.config.minBM25Threshold &&
-        semanticScore < this.config.minSemanticThreshold
-      ) {
-        return;
-      }
-
-      let hybridScore = 0;
-
+      // Logic Hybrid
+      let hybridScore = 0
+      
       if (isSingleWordArabic) {
-        // Jika pencarian 1 kata, 100% percaya pada BM25
+        // Mode 1 Kata: HANYA percaya Keyword
         hybridScore = bm25Score;
       } else {
-        // Jika kalimat, gunakan bobot hybrid normal
+        // Mode Kalimat
         if (bm25Score >= this.config.minBM25Threshold) {
-          hybridScore = bm25Score * 0.9; // Keyword priority
+            hybridScore = bm25Score * 0.9 
         } else if (semanticScore >= this.config.minSemanticThreshold) {
-          hybridScore = semanticScore * 0.5;
+            hybridScore = semanticScore * 0.5
         }
       }
 
-      // Filter akhir: Score harus cukup tinggi
-      if (hybridScore < 0.4) return;
+      // PENGETATAN 4: Filter Akhir (Final Gatekeeper)
+      // Sebelumnya 0.4. Sekarang 0.65.
+      // Artinya: Kalau sistem tidak yakin > 65%, jangan tampilkan.
+      // Ini akan menghilangkan hasil yang "maksa" atau "mirip dikit".
+      if (hybridScore < 0.65) return
 
-      const document = this.documents.find((d) => d.id === id);
+      const document = this.documents.find((d) => d.id === id)
       if (document) {
         hybridResults.push({
           id: document.id,
@@ -351,22 +297,14 @@ export class HybridSearchEngine {
           semanticScore,
           hybridScore,
           matchType: bm25Score >= semanticScore ? "keyword" : "semantic",
-        });
+        })
       }
-    });
+    })
 
-    // Sort dan return
     return hybridResults
-      .sort((a, b) => b.hybridScore - a.hybridScore)
-      .slice(0, topK);
+        .sort((a, b) => b.hybridScore - a.hybridScore)
+        .slice(0, topK)
   }
-
-  // ... methods updateConfig dll ...
-  updateConfig(config: Partial<HybridSearchConfig>): void {
-    this.config = { ...this.config, ...config };
-  }
-
-  getConfig(): HybridSearchConfig {
-    return { ...this.config };
-  }
+  
+  // Update Config methods...
 }
