@@ -111,7 +111,7 @@ export class BM25Search {
 
   search(query: string): Array<{ item: Record<string, any>; score: number }> {
     const normalizedQuery = normalizeArabicText(query)
-    const isShortQuery = normalizedQuery.length <= 3
+    // const isShortQuery = normalizedQuery.length <= 3
 
     let results = this.fuse.search(normalizedQuery)
 

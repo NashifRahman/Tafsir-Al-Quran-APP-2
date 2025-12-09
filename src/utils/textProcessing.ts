@@ -84,5 +84,6 @@ export function normalizeArabic(text: string): string {
       .replace(/يا\s+[اأإآ]/g, "يا")
       .replace(/كافر/g, "كفر")
       .replace(/سماوات/g, "سموت")
+      .replace(/سلاسل/g, " سلسل")
   );
 }
