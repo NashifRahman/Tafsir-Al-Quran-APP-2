@@ -86,7 +86,7 @@ export function normalizeArabic(text: string): string {
     .replace(/خاشعون/g, "خشعون")
     .replace(/فاعلون/g, "فعلون")
     .replace(/للزكاه/g, "للزكوة")
-    .replace(/غفلون/g, "غفلون")
+    .replace(/غافلون/g, "غفلون")
     .replace(/الراكعين/g, "الركعين");
 
   // --- STEP BARU: Loop Replacement dari Spreadsheet/JSON ---
