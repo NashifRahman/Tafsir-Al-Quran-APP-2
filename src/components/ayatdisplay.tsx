@@ -75,15 +75,15 @@ export default function AyatDisplay({
 
       <p
         dir="rtl"
-        className={`text-4xl font-ArabFont text-right leading-loose mb-3 ${highlightClass}`}
+        className={`text-xl md:text-3xl font-ArabFont text-right leading-loose mb-6 flex gap-4 ${highlightClass}`}
       >
         {arab}
       </p>
 
-      <p className="font-semibold text-[#a98b49] mb-2">{transliteration}</p>
+      <p className="text-sm md:text-base font-semibold text-[#a98b49] mb-2">{transliteration}</p>
 
       {/* 👇 2. GUNAKAN FUNGSI FORMATTER DI SINI */}
-      <div className="text-gray-700 mb-3 leading-relaxed">
+      <div className="text-sm md:text-base text-gray-700 mb-3 leading-relaxed">
         {formatTranslation(translation)}
       </div>
 

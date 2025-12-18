@@ -71,11 +71,19 @@ export default function SurahList() {
         try {
           const apiData = await fetchSurahList(user,Authorization);
           const apiDetail = await fetchAllSurahData(user,Authorization);
+
+          // === MULAI PERBAIKAN ===
+          // Kita harus memastikan verses di setiap surah urut dari 1, 2, 3... dst.
+          const sortedDetail = apiDetail.map((surah) => ({
+            ...surah,
+            verses: surah.verses.sort((a: any, b: any) => a.id - b.id), // Sort ascending berdasarkan ID ayat
+          }));
+
           data = apiData;
-          detail = apiDetail;
+          detail = sortedDetail;
           setSurahList(data);
           await cacheSurahList(data);
-          await cacheSurahDetail(detail);
+          await cacheSurahDetail(sortedDetail);
           console.log("✅ Surah list fetched from API and cached.");
         } catch (err) {
           console.error("❌ Error fetching surah list:", err);
