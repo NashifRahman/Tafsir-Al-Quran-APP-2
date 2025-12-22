@@ -80,6 +80,9 @@ export function normalizeArabic(text: string): string {
 
     .replace(/يا\s+[اأإآ]/g, "يا")
     .replace(/كافر/g, "كفر")
+    .replace(/الصلاه/g, "الصلوه")
+    .replace(/الزكاه/g, "الزكوه")
+    .replace(/الربا/g, "الربوا")
     .replace(/سماوات/g, "سموت")
     .replace(/سلاسل/g, " سلسل")
     .replace(/لكن هو الله/g, "لكنا هو الله")

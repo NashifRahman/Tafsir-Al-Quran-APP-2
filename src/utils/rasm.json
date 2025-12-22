@@ -178,5 +178,21 @@
   { "find": "ترابا", "replace": "تربا" },
   { "find": "كاتبين", "replace": "كتبين" },
   { "find": "المتنافسون", "replace": "المتنفسون" },
-  { "find": "سافلين", "replace": "سفلين" }
+  { "find": "سافلين", "replace": "سفلين" },
+  { "find": "كتاب", "replace": "كتب" },
+  { "find": "ممسكات", "replace": "ممسكت" },
+  { "find": "كاشفات", "replace": "كشفت" },
+  { "find": "سيئات", "replace": "سيات" },
+  { "find": "ايات", "replace": "ايت" },
+  { "find": "عالم", "replace": "علم" },
+  { "find": "قيام", "replace": "قيم" },
+  { "find": "شاكرين", "replace": "شكرين" },
+  { "find": "سبحانه", "replace": "سبحنه" },
+  { "find": "تعالى", "replace": "تعلى" },
+  { "find": "مطويه", "replace": "مطويت" },
+  { "find": "نبيين", "replace": "نبين" },
+  { "find": "الحياه", "replace": "الحيوه" },
+  { "find": "قاسي", "replace": "قسي" },
+  { "find": "القسيه", "replace": "القاسيه" },
+  { "find": "خاسر", "replace": "خسر" }
 ]
