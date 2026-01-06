@@ -187,12 +187,16 @@
   { "find": "عالم", "replace": "علم" },
   { "find": "قيام", "replace": "قيم" },
   { "find": "شاكرين", "replace": "شكرين" },
-  { "find": "سبحانه", "replace": "سبحنه" },
+  { "find": "سبحان", "replace": "سبحن" },
   { "find": "تعالى", "replace": "تعلى" },
   { "find": "مطويه", "replace": "مطويت" },
   { "find": "نبيين", "replace": "نبين" },
   { "find": "الحياه", "replace": "الحيوه" },
+  { "find": "انبئوني", "replace": "انبوني" },
   { "find": "قاسي", "replace": "قسي" },
   { "find": "القسيه", "replace": "القاسيه" },
-  { "find": "خاسر", "replace": "خسر" }
+  { "find": "خاسر", "replace": "خسر" },
+  { "find": "مجراها", "replace": "مجريها" },
+  { "find": "هواه", "replace": "هوىه" },
+  { "find": "قلوا", "replace": "قالوا" }
 ]

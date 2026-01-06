@@ -24,39 +24,30 @@ export interface HybridSearchConfig {
   minSemanticThreshold: number
 }
 
-// Konfigurasi default diperketat
+// UPDATE: Konfigurasi default dilonggarkan
 export const DEFAULT_HYBRID_CONFIG: HybridSearchConfig = {
-  bm25Weight: 0.7, // Bobot keyword dinaikkan
+  bm25Weight: 0.7, 
   semanticWeight: 0.3,
-  minBM25Threshold: 0.1, // Threshold minimal dinaikkan (hanya terima yang skornya bagus)
+  minBM25Threshold: 0.1, 
   minSemanticThreshold: 0.2,
 }
 
 // ==========================================
-// 2. Normalization Logic (TETAP)
+// 2. Normalization Logic (TETAP SAMA)
 // ==========================================
 
 function normalizeArabicText(text: string): string {
   if (!text) return ""
-  
   let normalized = text.normalize("NFKD")
-  
-  // Hapus Harakat, Tatwil, Tanda Wakaf
   normalized = normalized.replace(/[\u064B-\u065F]/g, "") 
   normalized = normalized.replace(/[\u0670]/g, "")       
   normalized = normalized.replace(/[\u06D6-\u06ED]/g, "") 
   normalized = normalized.replace(/[\u0640]/g, "")       
   normalized = normalized.replace(/\s+/g, " ").trim()
 
-  // normalized = normalized.replace(/يا\s+[اأإآ]/g, "يا")
-  // normalized = normalized.replace(/كافر/g, "كفر")
-  // normalized = normalized.replace(/سماوات/g, "سموت")
-
-
   const arabicNormalizationMap: Record<string, string> = {
     ا: "ا", أ: "ا", إ: "ا", آ: "ا", ٱ: "ا",
-    ى: "ي", ئ: "ي", ؤ: "و",
-    ة: "ه", ه: "ه",
+    ى: "ي", ئ: "ي", ؤ: "و", ه: "ه",
     ك: "k", 
     ﻻ: "لا", ﻼ: "لا", ﻹ: "لا", ﻺ: "لا",
   }
@@ -72,7 +63,7 @@ function normalizeArabicText(text: string): string {
 }
 
 // ==========================================
-// 3. BM25 / Keyword Search Engine (DIPERKETAT)
+// 3. BM25 / Keyword Search Engine (DILONGGARKAN)
 // ==========================================
 
 export class BM25Search {
@@ -92,18 +83,18 @@ export class BM25Search {
 
     this.fuse = new Fuse(this.normalizedDocs, {
       keys: [
-        { name: "arab_normalized", weight: 0.9 }, // Arab Prioritas Mutlak
+        { name: "arab_normalized", weight: 0.9 },
         { name: "latin_normalized", weight: 0.1 },
         { name: "terjemahan_normalized", weight: 0.05 },
       ],
-      // PENGETATAN 1: Threshold Super Ketat
-      // 0.0 = Exact Match, 0.6 = Loose. 
-      // Kita set 0.12 agar typo sedikit masih oke, tapi kata beda jauh ditolak.
-      threshold: 0.12, 
+      // UPDATE PENTING 1: Threshold Dilonggarkan
+      // 0.12 (Ketat) -> 0.35 (Moderat)
+      // Ini mengizinkan fuzzy logic bekerja untuk typo 1-2 karakter.
+      threshold: 0.35, 
       
       minMatchCharLength: 3, 
       includeScore: true,
-      ignoreLocation: true, // Cari dimanapun dalam ayat
+      ignoreLocation: true,
       useExtendedSearch: false,
       shouldSort: true,
     })
@@ -111,26 +102,17 @@ export class BM25Search {
 
   search(query: string): Array<{ item: Record<string, any>; score: number }> {
     const normalizedQuery = normalizeArabicText(query)
-    // const isShortQuery = normalizedQuery.length <= 3
-
     let results = this.fuse.search(normalizedQuery)
 
-    // Fallback dihapus atau diperketat. 
-    // Jangan lakukan fuzzy fallback jika hasil utama kosong, 
-    // karena itu sering memunculkan hasil "maksa" yang jauh berbeda.
-    
     return results
       .map((result) => {
         const doc = this.documents.find((d) => d.id === result.item.id) || result.item;
-        
-        // PENGETATAN 2: Manual Boost untuk Exact Match
-        // Fuse.js memberi skor berdasarkan fuzzy logic. 
-        // Kita timpa: Jika string query ada PERSIS di dalam dokumen, skor jadi 1.0 (Sempurna).
         const arabNorm = normalizeArabicText(doc.arabClean || doc.arab || "");
         
+        // Konversi score Fuse (0 = bagus) ke score kita (1 = bagus)
         let calculatedScore = Math.max(0, 1 - (result.score || 0));
 
-        // Cek Exact Substring (Misal cari "Fatihah", ayat mengandung "Al-Fatihah" -> Boost!)
+        // Exact Match Boost (Tetap dipertahankan untuk prioritas)
         if (arabNorm.includes(normalizedQuery)) {
             calculatedScore = 1.0; 
         }
@@ -140,15 +122,19 @@ export class BM25Search {
             score: calculatedScore
         };
       })
-      // PENGETATAN 3: Filter Akhir di Level BM25
-      // Hanya loloskan skor > 0.7 (Sangat mirip)
-      .filter(res => res.score > 0.7) 
+      // UPDATE PENTING 2: Filter Level BM25 Dilonggarkan
+      // Sebelumnya > 0.7. Sekarang > 0.4.
+      // Jika user typo, score mungkin turun ke 0.5 atau 0.6. 
+      // Jika kita set 0.7, hasil typo akan hilang.
+      .filter(res => res.score > 0.4) 
   }
 }
 
 // ==========================================
-// 4. Semantic / Vector Embedding Logic (TETAP)
+// 4. Semantic / Vector Embedding Logic (TETAP SAMA)
 // ==========================================
+// (Bagian SentenceBERTEmbedding dan VectorDatabase tidak perlu diubah 
+// karena logic semantic sudah naturally "fuzzy" secara makna)
 
 export class SentenceBERTEmbedding {
   private embeddingCache: Map<string, number[]> = new Map()
@@ -156,10 +142,8 @@ export class SentenceBERTEmbedding {
   generateEmbedding(text: string): number[] {
     const normalized = normalizeArabicText(text)
     if (this.embeddingCache.has(normalized)) return this.embeddingCache.get(normalized)!
-
     const vector = new Array(384).fill(0)
     const words = normalized.split(/\s+/).filter((w) => w.length > 0)
-
     for (let i = 0; i < words.length; i++) {
       const word = words[i]
       const wordWeight = 1 / Math.log(i + 2)
@@ -170,7 +154,6 @@ export class SentenceBERTEmbedding {
         vector[index] += wordWeight * charWeight
       }
     }
-    // ... (sisa logika embedding sama)
     const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0))
     if (magnitude > 0) {
       for (let i = 0; i < vector.length; i++) {
@@ -224,7 +207,7 @@ export class VectorDatabase {
 }
 
 // ==========================================
-// 5. Hybrid Engine (PENGGABUNGAN KETAT)
+// 5. Hybrid Engine (DILONGGARKAN)
 // ==========================================
 
 export class HybridSearchEngine {
@@ -267,7 +250,7 @@ export class HybridSearchEngine {
       let hybridScore = 0
       
       if (isSingleWordArabic) {
-        // Mode 1 Kata: HANYA percaya Keyword
+        // Mode 1 Kata: Percaya Keyword (sekarang sudah lebih toleran typo)
         hybridScore = bm25Score;
       } else {
         // Mode Kalimat
@@ -278,11 +261,12 @@ export class HybridSearchEngine {
         }
       }
 
-      // PENGETATAN 4: Filter Akhir (Final Gatekeeper)
-      // Sebelumnya 0.4. Sekarang 0.65.
-      // Artinya: Kalau sistem tidak yakin > 65%, jangan tampilkan.
-      // Ini akan menghilangkan hasil yang "maksa" atau "mirip dikit".
-      if (hybridScore < 0.65) return
+      // UPDATE PENTING 3: Filter Akhir (Final Gatekeeper) Dilonggarkan
+      // Sebelumnya 0.65. Sekarang 0.45.
+      // Alasannya: Jika user typo, bm25Score mungkin hanya 0.5.
+      // Jika gatekeeper 0.65, hasil pencarian user akan kosong (0 result).
+      // Angka 0.45 adalah batas aman untuk "agak mirip".
+      if (hybridScore < 0.45) return
 
       const document = this.documents.find((d) => d.id === id)
       if (document) {
@@ -305,6 +289,4 @@ export class HybridSearchEngine {
         .sort((a, b) => b.hybridScore - a.hybridScore)
         .slice(0, topK)
   }
-  
-  // Update Config methods...
 }
