@@ -49,7 +49,7 @@ function normalizeArabicText(text: string): string {
 
   const arabicNormalizationMap: Record<string, string> = {
     ا: "ا", أ: "ا", إ: "ا", آ: "ا", ٱ: "ا",
-    ى: "ي", ئ: "ي", ؤ: "و", ه: "ه",
+    ى: "ي", ئ: "ي", ؤ: "و", ه: "ه",  ة: "ه",
     ك: "k", 
     ﻻ: "لا", ﻼ: "لا", ﻹ: "لا", ﻺ: "لا",
   }
